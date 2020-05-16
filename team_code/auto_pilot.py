@@ -110,7 +110,7 @@ class AutoPilot(MapAgent):
 
         aim = R.T.dot(target - pos)
         angle = -np.degrees(np.arctan2(-aim[1], aim[0]))
-        angle = 0.0 if np.isnan(angle) else angle 
+        angle = 0.0 if np.isnan(angle) else angle
 
         return angle
 
