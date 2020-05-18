@@ -23,6 +23,9 @@ import pkg_resources
 import sys
 import torchvision
 
+# addition
+import pathlib
+
 import carla
 from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.timer import GameTime
@@ -44,6 +47,41 @@ from leaderboard.scenarios.route_scenario import RouteScenario
 from leaderboard.autoagents.agent_wrapper import SensorConfigurationInvalid
 from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
+
+
+# addition
+WEATHERS = [
+        carla.WeatherParameters.ClearNoon,
+        carla.WeatherParameters.ClearSunset,
+
+        carla.WeatherParameters.CloudyNoon,
+        carla.WeatherParameters.CloudySunset,
+
+        carla.WeatherParameters.WetNoon,
+        carla.WeatherParameters.WetSunset,
+
+        carla.WeatherParameters.MidRainyNoon,
+        carla.WeatherParameters.MidRainSunset,
+
+        carla.WeatherParameters.WetCloudyNoon,
+        carla.WeatherParameters.WetCloudySunset,
+
+        carla.WeatherParameters.HardRainNoon,
+        carla.WeatherParameters.HardRainSunset,
+
+        carla.WeatherParameters.SoftRainNoon,
+        carla.WeatherParameters.SoftRainSunset,
+
+        # night modes
+        carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+]
+
 
 
 sensors_to_icons = {
@@ -103,6 +141,14 @@ class LeaderboardEvaluator(object):
         # Time control for summary purposes
         self._start_time = GameTime.get_time()
         self._end_time = None
+
+        # addition
+        parent_folder = 'collected_data'
+        if not os.path.exists(parent_folder):
+            os.mkdir(parent_folder)
+        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        self.save_path = str(pathlib.Path(parent_folder) / string) + '.txt'
+        # self.save_path = args.checkpoint
 
     def __del__(self):
         """
@@ -207,6 +253,9 @@ class LeaderboardEvaluator(object):
         """
         Load and run the scenario given by config
         """
+        # addition: hack
+        config.weather =  WEATHERS[args.weather_index]
+
 
         if not self._load_and_wait_for_world(args, config.town, config.ego_vehicles):
             self._cleanup()
@@ -270,6 +319,11 @@ class LeaderboardEvaluator(object):
         if config.weather.sun_altitude_angle < 0.0:
             for vehicle in scenario.ego_vehicles:
                 vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
+            # addition: to turn on lights of
+            actor_list = self.world.get_actors()
+            vehicle_list = actor_list.filter('*vehicle*')
+            for vehicle in vehicle_list:
+                vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
 
         try:
             # Load scenario and run it
@@ -287,7 +341,10 @@ class LeaderboardEvaluator(object):
                                                                                     self.manager.scenario_duration_system,
                                                                                     self.manager.scenario_duration_game)
             # save
-            self.statistics_manager.save_record(current_stats_record, config.index, args.checkpoint)
+            # modification
+
+
+            self.statistics_manager.save_record(current_stats_record, config.index, self.save_path)
 
             # Remove all actors
             scenario.remove_all_actors()
@@ -313,10 +370,10 @@ class LeaderboardEvaluator(object):
         """
         route_indexer = RouteIndexer(args.routes, args.scenarios, args.repetitions)
         if args.resume:
-            route_indexer.resume(args.checkpoint)
-            self.statistics_manager.resume(args.checkpoint)
+            route_indexer.resume(self.save_path)
+            self.statistics_manager.resume(self.save_path)
         else:
-            self.statistics_manager.clear_record(args.checkpoint)
+            self.statistics_manager.clear_record(self.save_path)
         while route_indexer.peek():
             # setup
             config = route_indexer.next()
@@ -325,11 +382,12 @@ class LeaderboardEvaluator(object):
             self._load_and_run_scenario(args, config)
             self._cleanup(ego=True)
 
-            route_indexer.save_state(args.checkpoint)
+            route_indexer.save_state(self.save_path)
 
         # save global statistics
+        # modification
         global_stats_record = self.statistics_manager.compute_global_statistics(route_indexer.total)
-        StatisticsManager.save_global_record(global_stats_record, self.sensors, args.checkpoint)
+        StatisticsManager.save_global_record(global_stats_record, self.sensors, self.save_path)
 
 
 def main():
@@ -369,6 +427,9 @@ def main():
     parser.add_argument("--checkpoint", type=str,
                         default='./simulation_results.json',
                         help="Path to checkpoint used for saving statistics and resuming")
+
+    # addition
+    parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
 
     arguments = parser.parse_args()
 

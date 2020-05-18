@@ -19,6 +19,10 @@ import pathlib
 DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 
 
+
+
+
+
 def get_entry_point():
     return 'ImageAgent'
 
@@ -62,9 +66,10 @@ class ImageAgent(BaseAgent):
         parent_folder = 'collected_data'
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
-        now = datetime.datetime.now()
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_'
-        string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
+
+        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        # now = datetime.datetime.now()
+        # string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
 
         print(string)
 
@@ -74,7 +79,7 @@ class ImageAgent(BaseAgent):
         (self.save_path / 'rgb').mkdir()
         (self.save_path / 'rgb_left').mkdir()
         (self.save_path / 'rgb_right').mkdir()
-        (self.save_path / 'measurements').mkdir()
+
 
     # addition: modified from leaderboard/team_code/auto_pilot.py
     def save(self, steer, throttle, brake, tick_data):
@@ -83,27 +88,21 @@ class ImageAgent(BaseAgent):
         pos = self._get_position(tick_data)
         theta = tick_data['compass']
         speed = tick_data['speed']
+        print(tick_data['gps'])
 
-        data = {
-                'frame_id': frame,
-                'x': pos[0],
-                'y': pos[1],
-                'theta': theta,
-                'speed': speed,
-                # 'target_speed': target_speed,
-                # 'x_command': far_node[0],
-                # 'y_command': far_node[1],
-                # 'command': near_command.value,
-                'steer': steer,
-                'throttle': throttle,
-                'brake': brake,
-                }
 
-        (self.save_path / 'measurements' / ('%04d.json' % frame)).write_text(str(data))
+        center = self.save_path / 'rgb' / ('%04d.png' % frame)
+        left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
+        right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
 
-        Image.fromarray(tick_data['rgb']).save(self.save_path / 'rgb' / ('%04d.png' % frame))
-        Image.fromarray(tick_data['rgb_left']).save(self.save_path / 'rgb_left' / ('%04d.png' % frame))
-        Image.fromarray(tick_data['rgb_right']).save(self.save_path / 'rgb_right' / ('%04d.png' % frame))
+        data_row = ','.join([str(i) for i in [frame, pos[0], pos[1], theta, speed,  steer, throttle, brake, str(center), str(left), str(right), '\n']])
+        with (self.save_path / 'measurements.csv' ).open("a") as f_out:
+            f_out.write(data_row)
+
+
+        Image.fromarray(tick_data['rgb']).save(center)
+        Image.fromarray(tick_data['rgb_left']).save(left)
+        Image.fromarray(tick_data['rgb_right']).save(right)
 
     def _init(self):
         super()._init()
@@ -224,6 +223,10 @@ class ImageAgent(BaseAgent):
 
         # addition: from leaderboard/team_code/auto_pilot.py
         data = tick_data
+        if self.step == 0:
+            title_row = ','.join(['frame_id', 'x', 'y', 'theta', 'speed', 'steer', 'throttle', 'brake', 'center', 'left', 'right'])
+            with (self.save_path / 'measurements.csv' ).open("a") as f_out:
+                f_out.write(title_row+'\n')
 
         if self.step % 10 == 0:
             self.save(steer, throttle, brake, data)
