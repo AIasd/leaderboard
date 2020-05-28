@@ -31,6 +31,7 @@ class RouteRecord():
         self.route_id = None
         self.index = None
         self.status = 'Started'
+        # addtion: new event
         self.infractions = {
             'collisions_pedestrian': [],
             'collisions_vehicle': [],
@@ -40,7 +41,10 @@ class RouteRecord():
             'outside_route_lanes': [],
             'route_dev': [],
             'route_timeout': [],
-            'vehicle_blocked': []
+            'vehicle_blocked': [],
+            'on_sidewalk': [],
+            'outside_lane_infraction': [],
+            'wrong_lane': []
         }
 
         self.scores = {
@@ -135,7 +139,9 @@ class StatisticsManager(object):
         for node in self._master_scenario.get_criteria():
             if node.list_traffic_events:
                 # analyze all traffic events
+                # addition: new event
                 for event in node.list_traffic_events:
+                    print(event.get_type())
                     if event.get_type() == TrafficEventType.COLLISION_STATIC:
                         score_penalty *= PENALTY_COLLISION_STATIC
                         route_record.infractions['collisions_layout'].append(event.get_message())
@@ -175,7 +181,16 @@ class StatisticsManager(object):
                                 score_route = event.get_dict()['route_completed']
                             else:
                                 score_route = 0
-
+                                print('no event')
+                    elif event.get_type() == TrafficEventType.ON_SIDEWALK_INFRACTION:
+                        print('on_sidewalk')
+                        route_record.infractions['on_sidewalk'].append(event.get_message())
+                    elif event.get_type() == TrafficEventType.OUTSIDE_LANE_INFRACTION:
+                        print('outside_lane_infraction')
+                        route_record.infractions['outside_lane_infraction'].append(event.get_message())
+                    elif event.get_type() == TrafficEventType.WRONG_WAY_INFRACTION:
+                        print('wrong_way')
+                        route_record.infractions['wrong_lane'].append(event.get_message())
         # update route scores
         route_record.scores['score_route'] = score_route
         route_record.scores['score_penalty'] = score_penalty
@@ -261,7 +276,11 @@ class StatisticsManager(object):
                           '{:.3f}'.format(stats_dict['infractions']['outside_route_lanes']),
                           '{:.3f}'.format(stats_dict['infractions']['route_dev']),
                           '{:.3f}'.format(stats_dict['infractions']['route_timeout']),
-                          '{:.3f}'.format(stats_dict['infractions']['vehicle_blocked'])
+                          '{:.3f}'.format(stats_dict['infractions']['vehicle_blocked']),
+                          # addition: new event
+                          '{:.3f}'.format(stats_dict['infractions']['on_sidewalk']),
+                          '{:.3f}'.format(stats_dict['infractions']['outside_lane_infraction']),
+                          '{:.3f}'.format(stats_dict['infractions']['wrong_lane'])
                           ]
 
         data['labels'] = ['Avg. driving score',

@@ -18,8 +18,8 @@ import pathlib
 
 DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 
-
-
+# addition
+# from carla_project.src.common import CONVERTER, COLOR
 
 
 
@@ -64,45 +64,46 @@ class ImageAgent(BaseAgent):
         self.save_path = None
 
         parent_folder = 'collected_data'
-        if not os.path.exists(parent_folder):
-            os.mkdir(parent_folder)
-
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-        # now = datetime.datetime.now()
-        # string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
-
-        print(string)
-
         self.save_path = pathlib.Path(parent_folder) / string
-        self.save_path.mkdir(exist_ok=False)
 
-        (self.save_path / 'rgb').mkdir()
-        (self.save_path / 'rgb_left').mkdir()
-        (self.save_path / 'rgb_right').mkdir()
+
 
 
     # addition: modified from leaderboard/team_code/auto_pilot.py
     def save(self, steer, throttle, brake, tick_data):
-        frame = self.step // 10
+        # frame = self.step // 10
+        frame = self.step
 
         pos = self._get_position(tick_data)
-        theta = tick_data['compass']
+        far_command = tick_data['far_command']
         speed = tick_data['speed']
-        print(tick_data['gps'])
 
+        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+
+        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
+        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
+        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
+        topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
+        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, pos[0], pos[1], theta, speed,  steer, throttle, brake, str(center), str(left), str(right), '\n']])
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str, topdown_str]])
         with (self.save_path / 'measurements.csv' ).open("a") as f_out:
-            f_out.write(data_row)
+            f_out.write(data_row+'\n')
 
 
         Image.fromarray(tick_data['rgb']).save(center)
         Image.fromarray(tick_data['rgb_left']).save(left)
         Image.fromarray(tick_data['rgb_right']).save(right)
+
+        # TBD: Fix this!!!
+        # Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        # Image.fromarray(tick_data['topdown']).save(topdown)
+
 
     def _init(self):
         super()._init()
@@ -123,13 +124,16 @@ class ImageAgent(BaseAgent):
             ])
 
         gps = self._get_position(result)
-        far_node, _ = self._command_planner.run_step(gps)
+        # modification
+        far_node, far_command = self._command_planner.run_step(gps)
         target = R.T.dot(far_node - gps)
         target *= 5.5
         target += [128, 256]
         target = np.clip(target, 0, 256)
 
         result['target'] = target
+        # addition:
+        result['far_command'] = far_command
 
         return result
 
@@ -224,11 +228,9 @@ class ImageAgent(BaseAgent):
         # addition: from leaderboard/team_code/auto_pilot.py
         data = tick_data
         if self.step == 0:
-            title_row = ','.join(['frame_id', 'x', 'y', 'theta', 'speed', 'steer', 'throttle', 'brake', 'center', 'left', 'right'])
+            title_row = ','.join(['frame_id', 'far_command', 'speed', 'steering', 'throttle', 'brake', 'center', 'left', 'right'])
             with (self.save_path / 'measurements.csv' ).open("a") as f_out:
                 f_out.write(title_row+'\n')
-
-        if self.step % 10 == 0:
-            self.save(steer, throttle, brake, data)
-
+        # if self.step % 10 == 0:
+        self.save(steer, throttle, brake, data)
         return control

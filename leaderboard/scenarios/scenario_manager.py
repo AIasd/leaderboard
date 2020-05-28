@@ -25,6 +25,10 @@ from srunner.scenariomanager.watchdog import Watchdog
 
 from leaderboard.autoagents.agent_wrapper import AgentWrapper
 
+# addition
+import os
+import pathlib
+
 class Scenario(object):
 
     """
@@ -206,15 +210,30 @@ class ScenarioManager(object):
         self._watchdog.start()
         self._running = True
 
-        while self._running:
-            timestamp = None
-            world = CarlaDataProvider.get_world()
-            if world:
-                snapshot = world.get_snapshot()
-                if snapshot:
-                    timestamp = snapshot.timestamp
-            if timestamp:
-                self._tick_scenario(timestamp)
+        # TBD: remove redundancy of this and that in image_agent.py
+        parent_folder = 'collected_data'
+        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        save_path = pathlib.Path(parent_folder) / string
+
+        step = 0
+        with (save_path / 'measurements_loc.csv' ).open("a") as f_out:
+            while self._running:
+                timestamp = None
+                world = CarlaDataProvider.get_world()
+                if world:
+                    snapshot = world.get_snapshot()
+                    if snapshot:
+                        timestamp = snapshot.timestamp
+                if timestamp:
+                    self._tick_scenario(timestamp)
+                # addition
+                if step == 0:
+                    f_out.write('x,y\n')
+                # if step % 10 == 0:
+                loc = self.ego_vehicles[0].get_location()
+                f_out.write(str(loc.x)+','+str(loc.y)+'\n')
+                step += 1
+
 
         self._watchdog.stop()
 
@@ -260,6 +279,10 @@ class ScenarioManager(object):
         red_light = blackv.get("RunningRedLight")
         in_route = blackv.get("InRoute")
 
+        # addition: new event
+        on_side_walk = blackv.get("OnSideWalk")
+        wrong_lane = blackv.get("WrongLane")
+
         # If something failed, stop
         if [x for x in (collisions, outside_route_lanes, stop_signs, red_light, in_route) if x is None]:
             return
@@ -275,6 +298,10 @@ class ScenarioManager(object):
         outside_symbol = get_symbol(outside_route_lanes, 0, False)
         red_light_symbol = get_symbol(red_light, 0, False)
         stop_symbol = get_symbol(stop_signs, 0, False)
+
+        # addition: new event
+        on_side_walk_symbol = get_symbol(on_side_walk , 0, False)
+        wrong_lane_symbol = get_symbol(wrong_lane, 0, False)
 
         if self.scenario_tree.status == py_trees.common.Status.FAILURE:
             if not in_route:
@@ -297,7 +324,12 @@ class ScenarioManager(object):
             print("> - Outside route lanes [{}]:  {}%".format(outside_symbol, outside_route_lanes))
             print("> - Collisions [{}]:           {} times".format(collision_symbol, collisions))
             print("> - Red lights run [{}]:       {} times".format(red_light_symbol, red_light))
-            print("> - Stop signs run [{}]:       {} times\n".format(stop_symbol, stop_signs))
+            print("> - Stop signs run [{}]:       {} times".format(stop_symbol, stop_signs))
+
+            # addition: new event
+            print("> - On side walk [{}]:         {} times".format(on_side_walk_symbol, on_side_walk))
+            print("> - Wrong lane [{}]:           {} times\n".format(wrong_lane_symbol, wrong_lane))
+
 
     def _tick_scenario(self, timestamp):
         """

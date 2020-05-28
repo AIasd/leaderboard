@@ -11,12 +11,9 @@ Basic CARLA Autonomous Driving training scenario
 import py_trees
 from srunner.scenarioconfigs.route_scenario_configuration import RouteConfiguration
 from srunner.scenariomanager.scenarioatomics.atomic_behaviors import Idle
-from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest,
-                                                                     InRouteTest,
-                                                                     RouteCompletionTest,
-                                                                     RunningRedLightTest,
-                                                                     RunningStopTest,
-                                                                     OutsideRouteLanesTest)
+# addition: : new event
+# OutsideRouteLanesTest consists of OnSidewalkTest and WrongLaneTest
+from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, RunningRedLightTest, RunningStopTest, OutsideRouteLanesTest, OnSidewalkTest, WrongLaneTest)
 from srunner.scenarios.basic_scenario import BasicScenario
 
 from leaderboard.scenarios.scenarioatomics.atomic_criteria import ActorSpeedAboveThresholdTest
@@ -95,6 +92,10 @@ class MasterScenario(BasicScenario):
 
         outsidelane_criterion = OutsideRouteLanesTest(self.ego_vehicles[0],route=route)
 
+        # addition: new event
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0])
+        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0])
+
         red_light_criterion = RunningRedLightTest(self.ego_vehicles[0])
 
         stop_criterion = RunningStopTest(self.ego_vehicles[0])
@@ -114,6 +115,10 @@ class MasterScenario(BasicScenario):
         parallel_criteria.add_child(red_light_criterion)
         parallel_criteria.add_child(stop_criterion)
         parallel_criteria.add_child(blocked_criterion)
+
+        # addition: new event
+        parallel_criteria.add_child(onsidewalk_criterion)
+        parallel_criteria.add_child(wronglane_criterion)
 
 
         return parallel_criteria

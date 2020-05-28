@@ -147,8 +147,19 @@ class LeaderboardEvaluator(object):
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-        self.save_path = str(pathlib.Path(parent_folder) / string) + '.txt'
-        # self.save_path = args.checkpoint
+        current_record_folder = pathlib.Path(parent_folder) / string
+
+        if os.path.exists(str(current_record_folder)):
+            import shutil
+            shutil.rmtree(current_record_folder)
+        current_record_folder.mkdir(exist_ok=False)
+        (current_record_folder / 'rgb').mkdir()
+        (current_record_folder / 'rgb_left').mkdir()
+        (current_record_folder / 'rgb_right').mkdir()
+        (current_record_folder / 'topdown').mkdir()
+
+        self.save_path = str(current_record_folder / 'events.txt')
+
 
     def __del__(self):
         """
@@ -331,18 +342,15 @@ class LeaderboardEvaluator(object):
                 self.client.start_recorder("{}/{}.log".format(args.record, config.name))
             self.manager.load_scenario(scenario, self.agent_instance)
             self.statistics_manager.set_route(config.name, config.index, scenario.scenario)
+            print('start to run scenario')
             self.manager.run_scenario()
-
+            print('stop to run scanario')
             # Stop scenario
             self.manager.stop_scenario()
-
             # register statistics
-            current_stats_record = self.statistics_manager.compute_route_statistics(config,
-                                                                                    self.manager.scenario_duration_system,
-                                                                                    self.manager.scenario_duration_game)
+            current_stats_record = self.statistics_manager.compute_route_statistics(config, self.manager.scenario_duration_system, self.manager.scenario_duration_game)
             # save
             # modification
-
 
             self.statistics_manager.save_record(current_stats_record, config.index, self.save_path)
 
@@ -353,7 +361,6 @@ class LeaderboardEvaluator(object):
             settings.synchronous_mode = False
             settings.fixed_delta_seconds = None
             self.world.apply_settings(settings)
-
         except SensorConfigurationInvalid as e:
             self._cleanup(True)
             sys.exit(-1)
@@ -387,6 +394,7 @@ class LeaderboardEvaluator(object):
         # save global statistics
         # modification
         global_stats_record = self.statistics_manager.compute_global_statistics(route_indexer.total)
+
         StatisticsManager.save_global_record(global_stats_record, self.sensors, self.save_path)
 
 
@@ -435,14 +443,24 @@ def main():
 
     statistics_manager = StatisticsManager()
 
-    try:
-        leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
-        leaderboard_evaluator.run(arguments)
+    weather_indexes = [11, 19]
+    routes = [19, 29, 39, 49, 59, 69]
+    for weather_index in weather_indexes:
+        arguments.weather_index = weather_index
+        os.environ['WEATHER_INDEX'] = str(weather_index)
 
-    except Exception as e:
-        traceback.print_exc()
-    finally:
-        del leaderboard_evaluator
+        for route in routes:
+            arguments.routes = 'leaderboard/data/routes/route_'+str(route)+'.xml'
+            os.environ['ROUTES'] = 'leaderboard/data/routes/route_'+str(route)+'.xml'
+
+            try:
+                leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
+                leaderboard_evaluator.run(arguments)
+
+            except Exception as e:
+                traceback.print_exc()
+            finally:
+                del leaderboard_evaluator
 
 
 if __name__ == '__main__':
