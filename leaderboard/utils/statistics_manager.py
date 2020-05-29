@@ -262,7 +262,6 @@ class StatisticsManager(object):
             data = create_default_json_msg()
 
         stats_dict = route_record.__dict__
-        print(stats_dict)
         data['_checkpoint']['global_record'] = stats_dict
         data['values'] = ['{:.3f}'.format(stats_dict['scores']['score_composed']),
                           '{:.3f}'.format(stats_dict['scores']['score_route']),

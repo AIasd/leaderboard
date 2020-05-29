@@ -210,8 +210,10 @@ class ScenarioManager(object):
         self._watchdog.start()
         self._running = True
 
-        # TBD: remove redundancy of this and that in image_agent.py
         parent_folder = 'collected_data'
+        if os.environ['TEAM_AGENT'] == 'leaderboard/team_code/auto_pilot.py':
+            parent_folder = 'collected_data_autopilot'
+
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
         save_path = pathlib.Path(parent_folder) / string
 

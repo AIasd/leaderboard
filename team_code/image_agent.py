@@ -64,6 +64,8 @@ class ImageAgent(BaseAgent):
         self.save_path = None
 
         parent_folder = 'collected_data'
+        if os.environ['TEAM_AGENT'] == 'leaderboard/team_code/auto_pilot.py':
+            parent_folder = 'collected_data_autopilot'
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
         self.save_path = pathlib.Path(parent_folder) / string
 
@@ -81,17 +83,19 @@ class ImageAgent(BaseAgent):
 
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
 
+
+
         center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
         left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
         right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
+        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
-        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
+        # topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str, topdown_str]])
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
         with (self.save_path / 'measurements.csv' ).open("a") as f_out:
             f_out.write(data_row+'\n')
 
@@ -101,6 +105,7 @@ class ImageAgent(BaseAgent):
         Image.fromarray(tick_data['rgb_right']).save(right)
 
         # TBD: Fix this!!!
+        # from carla_project.src.common import CONVERTER, COLOR
         # Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
         # Image.fromarray(tick_data['topdown']).save(topdown)
 
@@ -186,6 +191,9 @@ class ImageAgent(BaseAgent):
 
         img = torchvision.transforms.functional.to_tensor(tick_data['image'])
         img = img[None].cuda()
+
+
+
 
         target = torch.from_numpy(tick_data['target'])
         target = target[None].cuda()

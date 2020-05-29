@@ -37,6 +37,15 @@ WEATHERS = [
 
         carla.WeatherParameters.SoftRainNoon,
         carla.WeatherParameters.SoftRainSunset,
+
+        # night modes
+        carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
+        carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
 ]
 
 
@@ -81,20 +90,10 @@ class AutoPilot(MapAgent):
         self.save_path = None
 
         if path_to_conf_file:
-            now = datetime.datetime.now()
-            string = pathlib.Path(os.environ['ROUTES']).stem + '_'
-            string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
-
-            print(string)
-
+            string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
             self.save_path = pathlib.Path(path_to_conf_file) / string
-            self.save_path.mkdir(exist_ok=False)
 
-            (self.save_path / 'rgb').mkdir()
-            (self.save_path / 'rgb_left').mkdir()
-            (self.save_path / 'rgb_right').mkdir()
-            (self.save_path / 'topdown').mkdir()
-            (self.save_path / 'measurements').mkdir()
+
 
     def _init(self):
         super()._init()
@@ -193,38 +192,36 @@ class AutoPilot(MapAgent):
         control.throttle = throttle
         control.brake = float(brake)
 
-        if self.step % 10 == 0:
-            self.save(far_node, near_command, steer, throttle, brake, target_speed, data)
+        # if self.step % 10 == 0:
+        self.save(far_command, steer, throttle, brake, target_speed, data)
 
         return control
 
-    def save(self, far_node, near_command, steer, throttle, brake, target_speed, tick_data):
-        frame = self.step // 10
+    def save(self, far_command, steer, throttle, brake, target_speed, tick_data):
+        # frame = self.step // 10
+        frame = self.step
 
-        pos = self._get_position(tick_data)
-        theta = tick_data['compass']
         speed = tick_data['speed']
+        string = string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
 
-        data = {
-                'x': pos[0],
-                'y': pos[1],
-                'theta': theta,
-                'speed': speed,
-                'target_speed': target_speed,
-                'x_command': far_node[0],
-                'y_command': far_node[1],
-                'command': near_command.value,
-                'steer': steer,
-                'throttle': throttle,
-                'brake': brake,
-                }
+        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
+        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
+        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
+        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
-        (self.save_path / 'measurements' / ('%04d.json' % frame)).write_text(str(data))
+        center = self.save_path / 'rgb' / ('%04d.png' % frame)
+        left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
+        right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
+        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
 
-        Image.fromarray(tick_data['rgb']).save(self.save_path / 'rgb' / ('%04d.png' % frame))
-        Image.fromarray(tick_data['rgb_left']).save(self.save_path / 'rgb_left' / ('%04d.png' % frame))
-        Image.fromarray(tick_data['rgb_right']).save(self.save_path / 'rgb_right' / ('%04d.png' % frame))
-        Image.fromarray(tick_data['topdown']).save(self.save_path / 'topdown' / ('%04d.png' % frame))
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
+        with (self.save_path / 'measurements.csv').open("a") as f_out:
+            f_out.write(data_row+'\n')
+
+        Image.fromarray(tick_data['rgb']).save(center)
+        Image.fromarray(tick_data['rgb_left']).save(left)
+        Image.fromarray(tick_data['rgb_right']).save(right)
+        Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
 
     def _should_brake(self):
         actors = self._world.get_actors()

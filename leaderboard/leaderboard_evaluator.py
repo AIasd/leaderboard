@@ -144,6 +144,9 @@ class LeaderboardEvaluator(object):
 
         # addition
         parent_folder = 'collected_data'
+        if args.agent == 'leaderboard/team_code/auto_pilot.py':
+            parent_folder = 'collected_data_autopilot'
+        print('-'*100, args.agent, os.environ['TEAM_AGENT'], '-'*100)
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
@@ -156,9 +159,16 @@ class LeaderboardEvaluator(object):
         (current_record_folder / 'rgb').mkdir()
         (current_record_folder / 'rgb_left').mkdir()
         (current_record_folder / 'rgb_right').mkdir()
-        (current_record_folder / 'topdown').mkdir()
+        if args.agent == 'leaderboard/team_code/auto_pilot.py':
+            (current_record_folder / 'topdown').mkdir()
 
         self.save_path = str(current_record_folder / 'events.txt')
+
+
+
+
+
+
 
 
     def __del__(self):
@@ -394,7 +404,6 @@ class LeaderboardEvaluator(object):
         # save global statistics
         # modification
         global_stats_record = self.statistics_manager.compute_global_statistics(route_indexer.total)
-
         StatisticsManager.save_global_record(global_stats_record, self.sensors, self.save_path)
 
 
@@ -443,15 +452,24 @@ def main():
 
     statistics_manager = StatisticsManager()
 
-    weather_indexes = [11, 19]
-    routes = [19, 29, 39, 49, 59, 69]
+    weather_indexes = [0]
+    routes = [16, 26, 36, 46, 56, 66]
+    # weather_indexes = [11, 19]
+    # routes = [19, 29, 39, 49, 59, 69]
+
+    # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
+    if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
+        weather_indexes = [0]
     for weather_index in weather_indexes:
         arguments.weather_index = weather_index
         os.environ['WEATHER_INDEX'] = str(weather_index)
 
         for route in routes:
-            arguments.routes = 'leaderboard/data/routes/route_'+str(route)+'.xml'
-            os.environ['ROUTES'] = 'leaderboard/data/routes/route_'+str(route)+'.xml'
+            route_str = str(route)
+            if route < 10:
+                route_str = '0'+route_str
+            arguments.routes = 'leaderboard/data/routes/route_'+route_str+'.xml'
+            os.environ['ROUTES'] = arguments.routes
 
             try:
                 leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
