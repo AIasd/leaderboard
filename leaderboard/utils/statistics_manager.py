@@ -136,61 +136,66 @@ class StatisticsManager(object):
         if self._master_scenario.timeout_node.timeout:
             route_record.infractions['route_timeout'].append('Route timeout.')
 
-        for node in self._master_scenario.get_criteria():
-            if node.list_traffic_events:
-                # analyze all traffic events
-                # addition: new event
-                for event in node.list_traffic_events:
-                    print(event.get_type())
-                    if event.get_type() == TrafficEventType.COLLISION_STATIC:
-                        score_penalty *= PENALTY_COLLISION_STATIC
-                        route_record.infractions['collisions_layout'].append(event.get_message())
+        # modification
+        with open('misbehaviors_log.txt', 'a') as f_out:
+            for node in self._master_scenario.get_criteria():
+                if node.list_traffic_events:
+                    # analyze all traffic events
+                    # addition: new event
+                    for event in node.list_traffic_events:
+                        # addition
+                        f_out.write(str(event.get_type())+'\n')
+                        print(event.get_type())
 
-                    elif event.get_type() == TrafficEventType.COLLISION_PEDESTRIAN:
-                        score_penalty *= PENALTY_COLLISION_PEDESTRIAN
-                        route_record.infractions['collisions_pedestrian'].append(event.get_message())
+                        if event.get_type() == TrafficEventType.COLLISION_STATIC:
+                            score_penalty *= PENALTY_COLLISION_STATIC
+                            route_record.infractions['collisions_layout'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.COLLISION_VEHICLE:
-                        score_penalty *= PENALTY_COLLISION_VEHICLE
-                        route_record.infractions['collisions_vehicle'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.COLLISION_PEDESTRIAN:
+                            score_penalty *= PENALTY_COLLISION_PEDESTRIAN
+                            route_record.infractions['collisions_pedestrian'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.OUTSIDE_ROUTE_LANES_INFRACTION:
-                        score_penalty *= (1 - event.get_dict()['percentage'] / 100)
-                        route_record.infractions['outside_route_lanes'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.COLLISION_VEHICLE:
+                            score_penalty *= PENALTY_COLLISION_VEHICLE
+                            route_record.infractions['collisions_vehicle'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.TRAFFIC_LIGHT_INFRACTION:
-                        score_penalty *= PENALTY_TRAFFIC_LIGHT
-                        route_record.infractions['red_light'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.OUTSIDE_ROUTE_LANES_INFRACTION:
+                            score_penalty *= (1 - event.get_dict()['percentage'] / 100)
+                            route_record.infractions['outside_route_lanes'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.ROUTE_DEVIATION:
-                        route_record.infractions['route_dev'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.TRAFFIC_LIGHT_INFRACTION:
+                            score_penalty *= PENALTY_TRAFFIC_LIGHT
+                            route_record.infractions['red_light'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.STOP_INFRACTION:
-                        score_penalty *= PENALTY_STOP
-                        route_record.infractions['stop_infraction'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.ROUTE_DEVIATION:
+                            route_record.infractions['route_dev'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.VEHICLE_BLOCKED:
-                        route_record.infractions['vehicle_blocked'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.STOP_INFRACTION:
+                            score_penalty *= PENALTY_STOP
+                            route_record.infractions['stop_infraction'].append(event.get_message())
 
-                    elif event.get_type() == TrafficEventType.ROUTE_COMPLETED:
-                        score_route = 100.0
-                        target_reached = True
-                    elif event.get_type() == TrafficEventType.ROUTE_COMPLETION:
-                        if not target_reached:
-                            if event.get_dict():
-                                score_route = event.get_dict()['route_completed']
-                            else:
-                                score_route = 0
-                                print('no event')
-                    elif event.get_type() == TrafficEventType.ON_SIDEWALK_INFRACTION:
-                        print('on_sidewalk')
-                        route_record.infractions['on_sidewalk'].append(event.get_message())
-                    elif event.get_type() == TrafficEventType.OUTSIDE_LANE_INFRACTION:
-                        print('outside_lane_infraction')
-                        route_record.infractions['outside_lane_infraction'].append(event.get_message())
-                    elif event.get_type() == TrafficEventType.WRONG_WAY_INFRACTION:
-                        print('wrong_way')
-                        route_record.infractions['wrong_lane'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.VEHICLE_BLOCKED:
+                            route_record.infractions['vehicle_blocked'].append(event.get_message())
+
+                        elif event.get_type() == TrafficEventType.ROUTE_COMPLETED:
+                            score_route = 100.0
+                            target_reached = True
+                        elif event.get_type() == TrafficEventType.ROUTE_COMPLETION:
+                            if not target_reached:
+                                if event.get_dict():
+                                    score_route = event.get_dict()['route_completed']
+                                else:
+                                    score_route = 0
+                                    print('no event')
+                        elif event.get_type() == TrafficEventType.ON_SIDEWALK_INFRACTION:
+                            print('on_sidewalk')
+                            route_record.infractions['on_sidewalk'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.OUTSIDE_LANE_INFRACTION:
+                            print('outside_lane_infraction')
+                            route_record.infractions['outside_lane_infraction'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.WRONG_WAY_INFRACTION:
+                            print('wrong_way')
+                            route_record.infractions['wrong_lane'].append(event.get_message())
         # update route scores
         route_record.scores['score_route'] = score_route
         route_record.scores['score_penalty'] = score_penalty

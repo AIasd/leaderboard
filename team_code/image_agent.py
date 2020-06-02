@@ -19,8 +19,10 @@ import pathlib
 DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 
 # addition
-# from carla_project.src.common import CONVERTER, COLOR
-
+from carla_project.src.carla_env import draw_traffic_lights, get_nearby_lights
+from carla_project.src.common import CONVERTER, COLOR
+from srunner.scenariomanager.carla_data_provider import CarlaActorPool
+from carla_project.src.common import CONVERTER, COLOR
 
 
 def get_entry_point():
@@ -28,17 +30,18 @@ def get_entry_point():
 
 
 def debug_display(tick_data, target_cam, out, steer, throttle, brake, desired_speed, step):
-    _rgb = Image.fromarray(tick_data['rgb'])
-    _draw_rgb = ImageDraw.Draw(_rgb)
-    _draw_rgb.ellipse((target_cam[0]-3,target_cam[1]-3,target_cam[0]+3,target_cam[1]+3), (255, 255, 255))
+    # modification
 
-    for x, y in out:
-        x = (x + 1) / 2 * 256
-        y = (y + 1) / 2 * 144
+    rgb = np.hstack((tick_data['rgb_left'], tick_data['rgb'], tick_data['rgb_right']))
+    _rgb = Image.fromarray(rgb)
+    _rgb = _rgb.resize((int(256 / _rgb.size[1] * _rgb.size[0]), 256))
 
-        _draw_rgb.ellipse((x-2, y-2, x+2, y+2), (0, 0, 255))
+    _topdown = Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]])
+    _topdown.thumbnail((256, 256))
 
-    _combined = Image.fromarray(np.hstack([tick_data['rgb_left'], _rgb, tick_data['rgb_right']]))
+    _combined = Image.fromarray(np.hstack((_rgb, _topdown)))
+
+
     _draw = ImageDraw.Draw(_combined)
     _draw.text((5, 10), 'Steer: %.3f' % steer)
     _draw.text((5, 30), 'Throttle: %.3f' % throttle)
@@ -51,6 +54,19 @@ def debug_display(tick_data, target_cam, out, steer, throttle, brake, desired_sp
 
 
 class ImageAgent(BaseAgent):
+    # addition
+    def sensors(self):
+        result = super().sensors()
+        result.append({
+            'type': 'sensor.camera.semantic_segmentation',
+            'x': 0.0, 'y': 0.0, 'z': 100.0,
+            'roll': 0.0, 'pitch': -90.0, 'yaw': 0.0,
+            'width': 512, 'height': 512, 'fov': 5 * 10.0,
+            'id': 'map'
+            })
+
+        return result
+
     def setup(self, path_to_conf_file):
         super().setup(path_to_conf_file)
 
@@ -88,12 +104,12 @@ class ImageAgent(BaseAgent):
         center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
         left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
         right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
+        topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
-        # topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
+        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
 
         data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
         with (self.save_path / 'measurements.csv' ).open("a") as f_out:
@@ -104,10 +120,8 @@ class ImageAgent(BaseAgent):
         Image.fromarray(tick_data['rgb_left']).save(left)
         Image.fromarray(tick_data['rgb_right']).save(right)
 
-        # TBD: Fix this!!!
-        # from carla_project.src.common import CONVERTER, COLOR
-        # Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
-        # Image.fromarray(tick_data['topdown']).save(topdown)
+        # addition
+        Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
 
 
     def _init(self):
@@ -115,6 +129,10 @@ class ImageAgent(BaseAgent):
 
         self._turn_controller = PIDController(K_P=1.25, K_I=0.75, K_D=0.3, n=40)
         self._speed_controller = PIDController(K_P=5.0, K_I=0.5, K_D=1.0, n=40)
+
+        # addition:
+        self._vehicle = CarlaActorPool.get_hero_actor()
+        self._world = self._vehicle.get_world()
 
     def tick(self, input_data):
         result = super().tick(input_data)
@@ -138,7 +156,13 @@ class ImageAgent(BaseAgent):
 
         result['target'] = target
         # addition:
+        self._actors = self._world.get_actors()
+        self._traffic_lights = get_nearby_lights(self._vehicle, self._actors.filter('*traffic_light*'))
         result['far_command'] = far_command
+        topdown = input_data['map'][1][:, :, 2]
+        topdown = draw_traffic_lights(topdown, self._vehicle, self._traffic_lights)
+        result['topdown'] = topdown
+
 
         return result
 
@@ -228,17 +252,13 @@ class ImageAgent(BaseAgent):
         control.brake = float(brake)
 
         if DEBUG:
-            debug_display(
-                    tick_data, target_cam.squeeze(), points.cpu().squeeze(),
-                    steer, throttle, brake, desired_speed,
-                    self.step)
+            debug_display(tick_data, target_cam.squeeze(), points.cpu().squeeze(), steer, throttle, brake, desired_speed, self.step)
 
         # addition: from leaderboard/team_code/auto_pilot.py
-        data = tick_data
         if self.step == 0:
             title_row = ','.join(['frame_id', 'far_command', 'speed', 'steering', 'throttle', 'brake', 'center', 'left', 'right'])
             with (self.save_path / 'measurements.csv' ).open("a") as f_out:
                 f_out.write(title_row+'\n')
         # if self.step % 10 == 0:
-        self.save(steer, throttle, brake, data)
+        self.save(steer, throttle, brake, tick_data)
         return control

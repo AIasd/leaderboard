@@ -152,10 +152,11 @@ class AutoPilot(MapAgent):
     def run_step(self, input_data, timestamp):
         if not self.initialized:
             self._init()
+            self._world.set_weather(WEATHERS[int(os.environ['WEATHER_INDEX'])])
 
-        if self.step % 100 == 0:
-            index = (self.step // 100) % len(WEATHERS)
-            self._world.set_weather(WEATHERS[index])
+        # if self.step % 100 == 0:
+        #     index = (self.step // 100) % len(WEATHERS)
+        #     self._world.set_weather(WEATHERS[index])
 
         data = self.tick(input_data)
         topdown = data['topdown']
@@ -221,6 +222,7 @@ class AutoPilot(MapAgent):
         Image.fromarray(tick_data['rgb']).save(center)
         Image.fromarray(tick_data['rgb_left']).save(left)
         Image.fromarray(tick_data['rgb_right']).save(right)
+        # modification
         Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
 
     def _should_brake(self):

@@ -332,6 +332,9 @@ class ScenarioManager(object):
             print("> - On side walk [{}]:         {} times".format(on_side_walk_symbol, on_side_walk))
             print("> - Wrong lane [{}]:           {} times\n".format(wrong_lane_symbol, wrong_lane))
 
+            with open('misbehaviors_log.txt', 'a') as f_out:
+                f_out.write('-'*25+pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']+'-'*25+'\n')
+                f_out.write('Route Completed: '+str(route_completed)+'%\n')
 
     def _tick_scenario(self, timestamp):
         """

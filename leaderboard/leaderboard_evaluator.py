@@ -25,6 +25,7 @@ import torchvision
 
 # addition
 import pathlib
+import time
 
 import carla
 from srunner.scenariomanager.carla_data_provider import *
@@ -47,6 +48,7 @@ from leaderboard.scenarios.route_scenario import RouteScenario
 from leaderboard.autoagents.agent_wrapper import SensorConfigurationInvalid
 from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
+
 
 
 # addition
@@ -73,12 +75,19 @@ WEATHERS = [
         carla.WeatherParameters.SoftRainSunset,
 
         # night modes
+        # clear night
         carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        # cloudy night
         carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        # wet night
         carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        # midrain night
         carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+        # wetcloudy night
         carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
+        # hardrain night: pick 19
         carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
+        # softrain night
         carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
 ]
 
@@ -107,7 +116,9 @@ class LeaderboardEvaluator(object):
     # Tunable parameters
     client_timeout = 10.0  # in seconds
     wait_for_world = 20.0  # in seconds
-    frame_rate = 20.0      # in Hz
+
+    # modification: 20.0 -> 10.0
+    frame_rate = 10.0      # in Hz
 
     def __init__(self, args, statistics_manager):
         """
@@ -159,8 +170,9 @@ class LeaderboardEvaluator(object):
         (current_record_folder / 'rgb').mkdir()
         (current_record_folder / 'rgb_left').mkdir()
         (current_record_folder / 'rgb_right').mkdir()
-        if args.agent == 'leaderboard/team_code/auto_pilot.py':
-            (current_record_folder / 'topdown').mkdir()
+        (current_record_folder / 'topdown').mkdir()
+        # if args.agent == 'leaderboard/team_code/auto_pilot.py':
+        #     (current_record_folder / 'topdown').mkdir()
 
         self.save_path = str(current_record_folder / 'events.txt')
 
@@ -451,15 +463,15 @@ def main():
     arguments = parser.parse_args()
 
     statistics_manager = StatisticsManager()
-
-    weather_indexes = [0]
-    routes = [16, 26, 36, 46, 56, 66]
-    # weather_indexes = [11, 19]
-    # routes = [19, 29, 39, 49, 59, 69]
+    # 0, 1, 2, 3, 10, 11, 14, 15, 19
+    weather_indexes = [0, 1, 2]
+    routes = [i for i in range(76)]
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
-        weather_indexes = [0]
+        weather_indexes = weather_indexes[:1]
+
+    time_start = time.time()
     for weather_index in weather_indexes:
         arguments.weather_index = weather_index
         os.environ['WEATHER_INDEX'] = str(weather_index)
@@ -479,6 +491,7 @@ def main():
                 traceback.print_exc()
             finally:
                 del leaderboard_evaluator
+            print('time elapsed :', time.time()-time_start)
 
 
 if __name__ == '__main__':
