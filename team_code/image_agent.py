@@ -22,7 +22,6 @@ DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 from carla_project.src.carla_env import draw_traffic_lights, get_nearby_lights
 from carla_project.src.common import CONVERTER, COLOR
 from srunner.scenariomanager.carla_data_provider import CarlaActorPool
-from carla_project.src.common import CONVERTER, COLOR
 
 
 def get_entry_point():
@@ -32,14 +31,25 @@ def get_entry_point():
 def debug_display(tick_data, target_cam, out, steer, throttle, brake, desired_speed, step):
     # modification
 
-    rgb = np.hstack((tick_data['rgb_left'], tick_data['rgb'], tick_data['rgb_right']))
-    _rgb = Image.fromarray(rgb)
-    _rgb = _rgb.resize((int(256 / _rgb.size[1] * _rgb.size[0]), 256))
+    # rgb = np.hstack((tick_data['rgb_left'], tick_data['rgb'], tick_data['rgb_right']))
 
+
+    _rgb = Image.fromarray(tick_data['rgb'])
+    _draw_rgb = ImageDraw.Draw(_rgb)
+    _draw_rgb.ellipse((target_cam[0]-3,target_cam[1]-3,target_cam[0]+3,target_cam[1]+3), (255, 255, 255))
+
+    for x, y in out:
+        x = (x + 1) / 2 * 256
+        y = (y + 1) / 2 * 144
+
+    _draw_rgb.ellipse((x-2, y-2, x+2, y+2), (0, 0, 255))
+
+    _combined = Image.fromarray(np.hstack([tick_data['rgb_left'], _rgb, tick_data['rgb_right']]))
+
+    _combined = _combined.resize((int(256 / _combined.size[1] * _combined.size[0]), 256))
     _topdown = Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]])
     _topdown.thumbnail((256, 256))
-
-    _combined = Image.fromarray(np.hstack((_rgb, _topdown)))
+    _combined = Image.fromarray(np.hstack((_combined, _topdown)))
 
 
     _draw = ImageDraw.Draw(_combined)
@@ -48,6 +58,7 @@ def debug_display(tick_data, target_cam, out, steer, throttle, brake, desired_sp
     _draw.text((5, 50), 'Brake: %s' % brake)
     _draw.text((5, 70), 'Speed: %.3f' % tick_data['speed'])
     _draw.text((5, 90), 'Desired: %.3f' % desired_speed)
+    _draw.text((5, 110), 'Far Command: %s' % str(tick_data['far_command']))
 
     cv2.imshow('map', cv2.cvtColor(np.array(_combined), cv2.COLOR_BGR2RGB))
     cv2.waitKey(1)

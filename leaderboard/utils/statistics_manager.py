@@ -225,8 +225,12 @@ class StatisticsManager(object):
                     route_length_kms = route_record.scores['score_route'] * route_record.meta['route_length'] / 1000.0
                     if isinstance(global_record.infractions[key], list):
                         global_record.infractions[key] = len(route_record.infractions[key]) / route_length_kms
+                        if route_length_kms == 0:
+                            global_record.infractions[key] = 0
                     else:
                         global_record.infractions[key] += len(route_record.infractions[key]) / route_length_kms
+                        if route_length_kms == 0:
+                            global_record.infractions[key] += 0
 
                 if route_record.status is not 'Completed':
                     global_record.status = 'Failed'
