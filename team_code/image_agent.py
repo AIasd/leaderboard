@@ -75,6 +75,13 @@ class ImageAgent(BaseAgent):
             'width': 512, 'height': 512, 'fov': 5 * 10.0,
             'id': 'map'
             })
+        result.append({
+            'type': 'sensor.camera.rgb',
+            'x': -7, 'y': 0.0, 'z': 3,
+            'roll': 0.0, 'pitch': -15.0, 'yaw': 0.0,
+            'width': 256, 'height': 144, 'fov': 90,
+            'id': 'rgb_with_car'
+            })
 
         return result
 
@@ -116,11 +123,14 @@ class ImageAgent(BaseAgent):
         left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
         right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
         topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
+        rgb_with_car_str = string + '/' + 'rgb_with_car' + '/' + ('%04d.png' % frame)
+
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
         topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
+        rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
 
         data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
         with (self.save_path / 'measurements.csv' ).open("a") as f_out:
@@ -133,6 +143,7 @@ class ImageAgent(BaseAgent):
 
         # addition
         Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        Image.fromarray(tick_data['rgb_with_car']).save(rgb_with_car)
 
 
     def _init(self):
@@ -148,6 +159,10 @@ class ImageAgent(BaseAgent):
     def tick(self, input_data):
         result = super().tick(input_data)
         result['image'] = np.concatenate(tuple(result[x] for x in ['rgb', 'rgb_left', 'rgb_right']), -1)
+
+
+        rgb_with_car = cv2.cvtColor(input_data['rgb_with_car'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+        result['rgb_with_car'] = rgb_with_car
 
         theta = result['compass']
         theta = 0.0 if np.isnan(theta) else theta

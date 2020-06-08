@@ -171,6 +171,7 @@ class LeaderboardEvaluator(object):
         (current_record_folder / 'rgb_left').mkdir()
         (current_record_folder / 'rgb_right').mkdir()
         (current_record_folder / 'topdown').mkdir()
+        (current_record_folder / 'rgb_with_car').mkdir()
         # if args.agent == 'leaderboard/team_code/auto_pilot.py':
         #     (current_record_folder / 'topdown').mkdir()
 
@@ -464,8 +465,9 @@ def main():
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
-    weather_indexes = [0, 1, 2]
-    routes = [i for i in range(31, 40)]
+    # only 11, 15, and 19 record vehicle's location for red light run, stop sign run and wrong lane, on sidewalk
+    weather_indexes = [19]
+    routes = [i for i in range(76)]
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
