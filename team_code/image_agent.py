@@ -77,8 +77,8 @@ class ImageAgent(BaseAgent):
             })
         result.append({
             'type': 'sensor.camera.rgb',
-            'x': -7, 'y': 0.0, 'z': 3,
-            'roll': 0.0, 'pitch': -15.0, 'yaw': 0.0,
+            'x': -7, 'y': 0.0, 'z': 7,
+            'roll': 0.0, 'pitch': -45.0, 'yaw': 0.0,
             'width': 256, 'height': 144, 'fov': 90,
             'id': 'rgb_with_car'
             })

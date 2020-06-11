@@ -21,6 +21,7 @@ from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.scenarioatomics.atomic_criteria import Criterion
 from srunner.scenariomanager.traffic_events import TrafficEvent, TrafficEventType
 
+ROUND_PREC = 14
 
 class ActorSpeedAboveThresholdTest(Criterion):
     """
@@ -80,9 +81,7 @@ class ActorSpeedAboveThresholdTest(Criterion):
         Sets the message of the event
         """
 
-        event.set_message('Agent got blocked at (x={}, y={}, z={})'.format(round(location.x, 3),
-                                                                               round(location.y, 3),
-                                                                               round(location.z, 3)))
+        event.set_message('Agent got blocked at (x={}, y={}, z={})'.format(round(location.x, ROUND_PREC), round(location.y, ROUND_PREC), round(location.z, ROUND_PREC)))
     @staticmethod
     def _set_event_dict(event, location):
         """

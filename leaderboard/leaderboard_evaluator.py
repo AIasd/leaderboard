@@ -465,8 +465,8 @@ def main():
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
-    # only 11, 15, and 19 record vehicle's location for red light run, stop sign run and wrong lane, on sidewalk
-    weather_indexes = [19]
+    # only 15 record vehicle's location for red light run
+    weather_indexes = [15]
     routes = [i for i in range(76)]
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
