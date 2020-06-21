@@ -466,7 +466,7 @@ def main():
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
     # only 15 record vehicle's location for red light run
     weather_indexes = [2]
-    routes = [i for i in range(59, 60)]
+    routes = [i for i in range(0, 1)]
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
