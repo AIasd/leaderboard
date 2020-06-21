@@ -35,7 +35,7 @@ from srunner.scenarios.other_leading_vehicle import OtherLeadingVehicle
 from srunner.scenarios.maneuver_opposite_direction import ManeuverOppositeDirection
 from srunner.scenarios.junction_crossing_route import SignalJunctionCrossingRoute, NoSignalJunctionCrossingRoute
 
-from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest)
+from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest, OnSidewalkTest, WrongLaneTest)
 
 from leaderboard.utils.route_parser import RouteParser, TRIGGER_THRESHOLD, TRIGGER_ANGLE_THRESHOLD
 from leaderboard.utils.route_manipulation import interpolate_trajectory
@@ -543,6 +543,9 @@ class RouteScenario(BasicScenario):
                                                          below_threshold_max_time=90.0,
                                                          terminate_on_failure=True)
 
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0])
+        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0])
+
         criteria.append(completion_criterion)
         criteria.append(collision_criterion)
         criteria.append(route_criterion)
@@ -550,6 +553,9 @@ class RouteScenario(BasicScenario):
         criteria.append(red_light_criterion)
         criteria.append(stop_criterion)
         criteria.append(blocked_criterion)
+
+        criteria.append(onsidewalk_criterion)
+        criteria.append(wronglane_criterion)
 
         return criteria
 
