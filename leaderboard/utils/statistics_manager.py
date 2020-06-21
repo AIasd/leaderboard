@@ -66,7 +66,7 @@ def to_route_record(record_dict):
 
 
 def compute_route_length(config):
-    trajectory = config.route_description['trajectory']
+    trajectory = config.trajectory
 
     route_length = 0.0
     previous_location = None
@@ -226,7 +226,7 @@ class StatisticsManager(object):
                 global_record.scores['score_composed'] += route_record.scores['score_composed']
 
                 for key in global_record.infractions.keys():
-                    route_length_kms = route_record.scores['score_route'] * route_record.meta['route_length'] / 1000.0
+                    route_length_kms = max(route_record.scores['score_route'] * route_record.meta['route_length'] / 1000.0, 0.001)
                     if isinstance(global_record.infractions[key], list):
                         global_record.infractions[key] = len(route_record.infractions[key]) / route_length_kms
                         if route_length_kms == 0:

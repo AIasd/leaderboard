@@ -203,7 +203,6 @@ class LeaderboardEvaluator(object):
         self.client.stop_recorder()
 
         CarlaDataProvider.cleanup()
-        CarlaActorPool.cleanup()
 
         for i, _ in enumerate(self.ego_vehicles):
             if self.ego_vehicles[i]:
@@ -223,7 +222,7 @@ class LeaderboardEvaluator(object):
 
         if not wait_for_ego_vehicles:
             for vehicle in ego_vehicles:
-                self.ego_vehicles.append(CarlaActorPool.setup_actor(vehicle.model,
+                self.ego_vehicles.append(CarlaDataProvider.setup_actor(vehicle.model,
                                                                     vehicle.transform,
                                                                     vehicle.rolename,
                                                                     True,
@@ -254,7 +253,7 @@ class LeaderboardEvaluator(object):
 
     def _load_and_wait_for_world(self, args, town, ego_vehicles=None):
         """
-        Load a new CARLA world and provide data to CarlaActorPool and CarlaDataProvider
+        Load a new CARLA world and provide data to CarlaDataProvider and CarlaDataProvider
         """
 
         self.world = self.client.load_world(town)
@@ -263,8 +262,8 @@ class LeaderboardEvaluator(object):
         settings.synchronous_mode = True
         self.world.apply_settings(settings)
 
-        CarlaActorPool.set_client(self.client)
-        CarlaActorPool.set_world(self.world)
+        CarlaDataProvider.set_client(self.client)
+        CarlaDataProvider.set_world(self.world)
         CarlaDataProvider.set_world(self.world)
 
         spectator = CarlaDataProvider.get_world().get_spectator()
@@ -466,8 +465,8 @@ def main():
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
     # only 15 record vehicle's location for red light run
-    weather_indexes = [15]
-    routes = [i for i in range(76)]
+    weather_indexes = [2]
+    routes = [i for i in range(59, 60)]
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':

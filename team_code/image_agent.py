@@ -21,7 +21,7 @@ DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 # addition
 from carla_project.src.carla_env import draw_traffic_lights, get_nearby_lights
 from carla_project.src.common import CONVERTER, COLOR
-from srunner.scenariomanager.carla_data_provider import CarlaActorPool
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
 
 def get_entry_point():
@@ -153,7 +153,7 @@ class ImageAgent(BaseAgent):
         self._speed_controller = PIDController(K_P=5.0, K_I=0.5, K_D=1.0, n=40)
 
         # addition:
-        self._vehicle = CarlaActorPool.get_hero_actor()
+        self._vehicle = CarlaDataProvider.get_hero_actor()
         self._world = self._vehicle.get_world()
 
     def tick(self, input_data):
