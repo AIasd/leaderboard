@@ -222,12 +222,7 @@ class LeaderboardEvaluator(object):
 
         if not wait_for_ego_vehicles:
             for vehicle in ego_vehicles:
-                self.ego_vehicles.append(CarlaDataProvider.setup_actor(vehicle.model,
-                                                                    vehicle.transform,
-                                                                    vehicle.rolename,
-                                                                    True,
-                                                                    color=vehicle.color,
-                                                                    vehicle_category=vehicle.category))
+                self.ego_vehicles.append(CarlaDataProvider.setup_actor(vehicle.model, vehicle.transform, vehicle.rolename, True, color=vehicle.color, vehicle_category=vehicle.category))
         else:
             ego_vehicle_missing = True
             while ego_vehicle_missing:
@@ -431,7 +426,8 @@ def main():
     parser.add_argument('--spectator', type=bool, help='Switch spectator view on?', default=True)
     parser.add_argument('--record', type=str, default='',
                         help='Use CARLA recording feature to create a recording of the scenario')
-    parser.add_argument('--timeout', default="30.0",
+    # modification: 30->15
+    parser.add_argument('--timeout', default="15.0",
                         help='Set the CARLA client timeout value in seconds')
 
     # simulation setup
@@ -461,12 +457,22 @@ def main():
     parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
 
     arguments = parser.parse_args()
+    # arguments.debug = True
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
     # only 15 record vehicle's location for red light run
     weather_indexes = [2]
     routes = [i for i in range(0, 1)]
+
+    using_customized_route_and_scenario = True
+
+    if using_customized_route_and_scenario:
+        route_prefix = 'leaderboard/data/customized_routes/route_'
+        routes = [0]
+        arguments.scenarios = 'leaderboard/data/customized_scenarios.json'
+    else:
+        route_prefix = 'leaderboard/data/routes/route_'
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
@@ -481,7 +487,7 @@ def main():
             route_str = str(route)
             if route < 10:
                 route_str = '0'+route_str
-            arguments.routes = 'leaderboard/data/routes/route_'+route_str+'.xml'
+            arguments.routes = route_prefix+route_str+'.xml'
             os.environ['ROUTES'] = arguments.routes
 
             try:

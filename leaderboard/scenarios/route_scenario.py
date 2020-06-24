@@ -34,6 +34,9 @@ from srunner.scenarios.object_crash_intersection import VehicleTurningRoute
 from srunner.scenarios.other_leading_vehicle import OtherLeadingVehicle
 from srunner.scenarios.maneuver_opposite_direction import ManeuverOppositeDirection
 from srunner.scenarios.junction_crossing_route import SignalJunctionCrossingRoute, NoSignalJunctionCrossingRoute
+# addition
+from srunner.scenarios.customized.right_turn_follow_slow_car import RightTurnFollowSlowCar
+
 
 from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest, OnSidewalkTest, WrongLaneTest)
 
@@ -55,7 +58,8 @@ NUMBER_CLASS_TRANSLATION = {
     "Scenario7": SignalJunctionCrossingRoute,
     "Scenario8": SignalJunctionCrossingRoute,
     "Scenario9": SignalJunctionCrossingRoute,
-    "Scenario10": NoSignalJunctionCrossingRoute
+    "Scenario10": NoSignalJunctionCrossingRoute,
+    "Scenario11": RightTurnFollowSlowCar
 }
 
 
@@ -213,6 +217,37 @@ class RouteScenario(BasicScenario):
 
         # prepare route's trajectory (interpolate and add the GPS route)
         gps_route, route = interpolate_trajectory(world, config.trajectory)
+        x_list = []
+        y_list = []
+        n = len(route)
+        for i, (transform, command) in enumerate(route):
+            x = transform.location.x
+            y = transform.location.y
+            z = transform.location.z
+            pitch = transform.rotation.pitch
+            yaw = transform.rotation.yaw
+            if i == 0:
+                s = 'start'
+                x_s = [x]
+                y_s = [y]
+            elif i == n-1:
+                s = 'end'
+                x_e = [x]
+                y_e = [y]
+            else:
+                s = 'point'
+                x_list.append(x)
+                y_list.append(y)
+
+            print(s, x, y, z, pitch, yaw, command)
+
+        import matplotlib.pyplot as plt
+        plt.gca().invert_yaxis()
+        plt.scatter(x_list, y_list)
+        plt.scatter(x_s, y_s, c='red', linewidths=5)
+        plt.scatter(x_e, y_e, c='black', linewidths=5)
+
+        plt.show()
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
 
@@ -242,6 +277,7 @@ class RouteScenario(BasicScenario):
         ego_vehicle = CarlaDataProvider.request_new_actor('vehicle.lincoln.mkz2017',
                                                        elevate_transform,
                                                        rolename='hero')
+        print('starting_position:', ego_vehicle.get_location())
 
         return ego_vehicle
 
@@ -384,8 +420,7 @@ class RouteScenario(BasicScenario):
             route_var_name = "ScenarioRouteNumber{}".format(scenario_number)
             scenario_configuration.route_var_name = route_var_name
             try:
-                scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration,
-                                                   criteria_enable=False, timeout=timeout)
+                scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout)
                 # Do a tick every once in a while to avoid spawning everything at the same time
                 if scenario_number % scenarios_per_tick == 0:
                     if CarlaDataProvider.is_sync_mode():
