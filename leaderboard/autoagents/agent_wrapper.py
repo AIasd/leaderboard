@@ -165,7 +165,7 @@ class AgentWrapper(object):
             sensor.listen(CallBack(sensor_spec['id'], sensor, self._agent.sensor_interface))
             self._sensors_list.append(sensor)
 
-        self._validate_sensor_configuration(self._agent.track)
+        self._validate_sensor_configuration(track)
 
         while not self._agent.all_sensors_ready():
             if debug_mode:

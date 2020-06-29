@@ -469,7 +469,7 @@ def main():
 
     if using_customized_route_and_scenario:
         route_prefix = 'leaderboard/data/customized_routes/route_'
-        routes = [0]
+        routes = [4]
         arguments.scenarios = 'leaderboard/data/customized_scenarios.json'
     else:
         route_prefix = 'leaderboard/data/routes/route_'
