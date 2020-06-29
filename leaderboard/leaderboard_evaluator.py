@@ -147,7 +147,7 @@ class LeaderboardEvaluator(object):
         self.module_agent = importlib.import_module(module_name)
 
         # Create the ScenarioManager
-        self.manager = ScenarioManager(args.debug, args.challenge_mode, args.track, self.client_timeout)
+        self.manager = ScenarioManager(args.debug, args.sync, args.challenge_mode, args.track, self.client_timeout)
 
         # Time control for summary purposes
         self._start_time = GameTime.get_time()
@@ -422,6 +422,8 @@ def main():
     parser.add_argument('--host', default='localhost',
                         help='IP of the host server (default: localhost)')
     parser.add_argument('--port', default='2000', help='TCP port to listen to (default: 2000)')
+    parser.add_argument('--sync', action='store_true',
+                        help='Forces the simulation to run synchronously')
     parser.add_argument('--debug', type=int, help='Run with debug output', default=0)
     parser.add_argument('--spectator', type=bool, help='Switch spectator view on?', default=True)
     parser.add_argument('--record', type=str, default='',
@@ -457,7 +459,7 @@ def main():
     parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
 
     arguments = parser.parse_args()
-    # arguments.debug = True
+    arguments.debug = True
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19

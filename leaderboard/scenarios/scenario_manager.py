@@ -51,7 +51,7 @@ class ScenarioManager(object):
     5. If needed, cleanup with manager.stop_scenario()
     """
 
-    def __init__(self, debug_mode=False, challenge_mode=False, track=None, timeout=10.0):
+    def __init__(self, debug_mode=False, sync_mode=False, challenge_mode=False, track=None, timeout=10.0):
         """
         Setups up the parameters, which will be filled at load_scenario()
         """
@@ -65,6 +65,7 @@ class ScenarioManager(object):
         self._challenge_mode = challenge_mode
         self._track = track
         self._agent = None
+        self._sync_mode = sync_mode
         self._running = False
         self._timestamp_last_run = 0.0
         self._timeout = timeout
@@ -105,17 +106,20 @@ class ScenarioManager(object):
         """
         self._reset()
         self._agent = AgentWrapper(agent, self._challenge_mode) if agent else None
+        if self._agent is not None:
+            self._sync_mode = True
         self.scenario_class = scenario
         self.scenario = scenario.scenario
         self.scenario_tree = self.scenario.scenario_tree
         self.ego_vehicles = scenario.ego_vehicles
         self.other_actors = scenario.other_actors
 
-        CarlaDataProvider.register_actors(self.ego_vehicles)
-        CarlaDataProvider.register_actors(self.other_actors)
+        # modification registration now moves to carla_data_provider
+        # CarlaDataProvider.register_actors(self.ego_vehicles)
+        # CarlaDataProvider.register_actors(self.other_actors)
         # To print the scenario tree uncomment the next line
         # py_trees.display.render_dot_tree(self.scenario_tree)
-
+        print('-'*100, self._track)
         if self._agent is not None:
             self._agent.setup_sensors(self.ego_vehicles[0], self._debug_mode, self._track)
 
@@ -207,6 +211,7 @@ class ScenarioManager(object):
 
         # If something failed, stop
         if [x for x in (collisions, outside_route_lanes, stop_signs, red_light, in_route) if x is None]:
+            print("Nothing to analyze, this scenario has no criteria")
             return
 
         if blackv.get("RouteCompletion") >= 99:
@@ -295,7 +300,7 @@ class ScenarioManager(object):
             if self._agent is not None:
                 self.ego_vehicles[0].apply_control(ego_action)
 
-        if self._agent and self._running and self._watchdog.get_status():
+        if self._sync_mode and self._running and self._watchdog.get_status():
             CarlaDataProvider.get_world().tick()
 
     def get_running_status(self):

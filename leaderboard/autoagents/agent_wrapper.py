@@ -177,7 +177,6 @@ class AgentWrapper(object):
         Ensure that the sensor configuration is valid, in case the challenge mode is used
         Returns true on valid configuration, false otherwise
         """
-
         if Track(selected_track) != self._agent.track:
             raise SensorConfigurationInvalid("You are submitting to the wrong track [{}]!".format(Track(selected_track)))
 
