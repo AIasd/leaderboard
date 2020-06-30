@@ -120,11 +120,12 @@ class LeaderboardEvaluator(object):
     # modification: 20.0 -> 10.0
     frame_rate = 10.0      # in Hz
 
-    def __init__(self, args, statistics_manager):
+    def __init__(self, args, statistics_manager, customized_data=None):
         """
         Setup CARLA client and world
         Setup ScenarioManager
         """
+
         self.statistics_manager = statistics_manager
         self.sensors = []
         self._vehicle_lights = carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
@@ -154,9 +155,7 @@ class LeaderboardEvaluator(object):
         self._end_time = None
 
         # addition
-        parent_folder = 'collected_data'
-        if args.agent == 'leaderboard/team_code/auto_pilot.py':
-            parent_folder = 'collected_data_autopilot'
+        parent_folder = args.save_folder
         print('-'*100, args.agent, os.environ['TEAM_AGENT'], '-'*100)
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
@@ -277,7 +276,7 @@ class LeaderboardEvaluator(object):
 
         return True
 
-    def _load_and_run_scenario(self, args, config):
+    def _load_and_run_scenario(self, args, config, customized_data):
         """
         Load and run the scenario given by config
         """
@@ -304,7 +303,7 @@ class LeaderboardEvaluator(object):
 
         try:
             self._prepare_ego_vehicles(config.ego_vehicles, False)
-            scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug)
+            scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug, customized_data=customized_data)
 
         except Exception as exception:
             print("The scenario cannot be loaded")
@@ -388,7 +387,7 @@ class LeaderboardEvaluator(object):
 
         self._cleanup()
 
-    def run(self, args):
+    def run(self, args, customized_data):
         """
         Run the challenge mode
         """
@@ -403,7 +402,7 @@ class LeaderboardEvaluator(object):
             config = route_indexer.next()
 
             # run
-            self._load_and_run_scenario(args, config)
+            self._load_and_run_scenario(args, config, customized_data)
             self._cleanup(ego=True)
 
             route_indexer.save_state(self.save_path)
@@ -429,7 +428,7 @@ def main():
     parser.add_argument('--record', type=str, default='',
                         help='Use CARLA recording feature to create a recording of the scenario')
     # modification: 30->15
-    parser.add_argument('--timeout', default="15.0",
+    parser.add_argument('--timeout', default="30.0",
                         help='Set the CARLA client timeout value in seconds')
 
     # simulation setup
@@ -457,17 +456,27 @@ def main():
 
     # addition
     parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
+    parser.add_argument("--save_folder", type=str, default='/home/zhongzzy9/Documents/self-driving-car/2020_CARLA_challenge/collected_data', help="Path to save simulation data")
+
 
     arguments = parser.parse_args()
-    arguments.debug = True
+    # arguments.debug = True
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
     # only 15 record vehicle's location for red light run
+
+
+
+
+    # weather_indexes is a subset of integers in [0, 20]
     weather_indexes = [2]
     routes = [i for i in range(0, 1)]
 
     using_customized_route_and_scenario = True
+
+
+
 
     if using_customized_route_and_scenario:
         route_prefix = 'leaderboard/data/customized_routes/route_'
@@ -486,6 +495,31 @@ def main():
         os.environ['WEATHER_INDEX'] = str(weather_index)
 
         for route in routes:
+            # addition
+            # dx: -10~10
+            # dy: -5~50
+            # dyaw: -90~90
+            # d_activation_dist: -20~20
+            # _other_actor_target_velocity: 0~20
+            # actor_type: see specs.txt for a detailed options
+            dx = 0
+            dy = 0
+            dyaw = 0
+            d_activation_dist = 0
+            _other_actor_target_velocity = 5
+            actor_type = 'vehicle.diamondback.century'
+
+            if using_customized_route_and_scenario:
+                dx = 0
+                dy = 5
+                dyaw = -45
+                d_activation_dist = 0
+                _other_actor_target_velocity = 5
+
+
+            customized_data = {'dx': dx, 'dy': dy, 'dyaw': dyaw, 'd_activation_dist': d_activation_dist, '_other_actor_target_velocity': _other_actor_target_velocity, 'using_customized_route_and_scenario':using_customized_route_and_scenario, 'actor_type': actor_type}
+
+
             route_str = str(route)
             if route < 10:
                 route_str = '0'+route_str
@@ -494,7 +528,7 @@ def main():
 
             try:
                 leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
-                leaderboard_evaluator.run(arguments)
+                leaderboard_evaluator.run(arguments, customized_data)
 
             except Exception as e:
                 traceback.print_exc()

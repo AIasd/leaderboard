@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 import numpy.random as random
 
 import py_trees
-
+import traceback
 import carla
 
 from agents.navigation.local_planner import RoadOption
@@ -176,10 +176,13 @@ class RouteScenario(BasicScenario):
 
     category = "RouteScenario"
 
-    def __init__(self, world, config, debug_mode=False, criteria_enable=True):
+    def __init__(self, world, config, debug_mode=False, criteria_enable=True, customized_data=None):
         """
         Setup all relevant parameters and create scenarios along route
         """
+        # addition
+        self.customized_data = customized_data
+
         self.config = config
         self.route = None
         self.sampled_scenarios_definitions = None
@@ -220,34 +223,37 @@ class RouteScenario(BasicScenario):
         x_list = []
         y_list = []
         n = len(route)
-        for i, (transform, command) in enumerate(route):
-            x = transform.location.x
-            y = transform.location.y
-            z = transform.location.z
-            pitch = transform.rotation.pitch
-            yaw = transform.rotation.yaw
-            if i == 0:
-                s = 'start'
-                x_s = [x]
-                y_s = [y]
-            elif i == n-1:
-                s = 'end'
-                x_e = [x]
-                y_e = [y]
-            else:
-                s = 'point'
-                x_list.append(x)
-                y_list.append(y)
 
-            print(s, x, y, z, pitch, yaw, command)
+        # The following code prints out the planned route
 
-        import matplotlib.pyplot as plt
-        plt.gca().invert_yaxis()
-        plt.scatter(x_list, y_list)
-        plt.scatter(x_s, y_s, c='red', linewidths=5)
-        plt.scatter(x_e, y_e, c='black', linewidths=5)
+        # for i, (transform, command) in enumerate(route):
+        #     x = transform.location.x
+        #     y = transform.location.y
+        #     z = transform.location.z
+        #     pitch = transform.rotation.pitch
+        #     yaw = transform.rotation.yaw
+        #     if i == 0:
+        #         s = 'start'
+        #         x_s = [x]
+        #         y_s = [y]
+        #     elif i == n-1:
+        #         s = 'end'
+        #         x_e = [x]
+        #         y_e = [y]
+        #     else:
+        #         s = 'point'
+        #         x_list.append(x)
+        #         y_list.append(y)
 
-        plt.show()
+            # print(s, x, y, z, pitch, yaw, command)
+
+        # import matplotlib.pyplot as plt
+        # plt.gca().invert_yaxis()
+        # plt.scatter(x_list, y_list)
+        # plt.scatter(x_s, y_s, c='red', linewidths=5)
+        # plt.scatter(x_e, y_e, c='black', linewidths=5)
+        #
+        # plt.show()
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
 
@@ -420,7 +426,10 @@ class RouteScenario(BasicScenario):
             route_var_name = "ScenarioRouteNumber{}".format(scenario_number)
             scenario_configuration.route_var_name = route_var_name
             try:
-                scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout)
+                if definition['name'] == 'Scenario4':
+                    scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout, customized_data=self.customized_data)
+                else:
+                    scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout)
                 # Do a tick every once in a while to avoid spawning everything at the same time
                 if scenario_number % scenarios_per_tick == 0:
                     if CarlaDataProvider.is_sync_mode():
@@ -430,6 +439,7 @@ class RouteScenario(BasicScenario):
 
             except Exception as e:
                 print("Skipping scenario '{}' due to setup error: {}".format(definition['name'], e))
+                traceback.print_exc()
                 continue
 
             scenario_instance_vec.append(scenario_instance)
@@ -486,6 +496,10 @@ class RouteScenario(BasicScenario):
         }
 
         amount = town_amount[config.town] if config.town in town_amount else 0
+
+        # modification: we temporarily disable background activities
+        if self.customized_data['using_customized_route_and_scenario'] == True:
+            amount = 0
 
         new_actors = CarlaDataProvider.request_new_batch_actors('vehicle.*',
                                                                 amount,
