@@ -4,3 +4,4 @@
 .project
 .pydevproject
 *.sh
+data/customized_routes/*

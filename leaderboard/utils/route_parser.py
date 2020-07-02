@@ -220,6 +220,9 @@ class RouteParser(object):
                         subtype = 'S4left'
                     elif RoadOption.RIGHT == tuple_wp_turn[1]:
                         subtype = 'S4right'
+                    # addition
+                    elif RoadOption.STRAIGHT == tuple_wp_turn[1]:
+                        subtype = 'S4opposite'
                     else:
                         subtype = None
                     break  # Avoid checking all of them
@@ -280,8 +283,8 @@ class RouteParser(object):
 
         for town_name in world_annotations.keys():
             if town_name != route_name:
+                print(town_name, route_name)
                 continue
-
             scenarios = world_annotations[town_name]
             for scenario in scenarios:  # For each existent scenario
                 if "scenario_type" not in scenario:
@@ -301,7 +304,9 @@ class RouteParser(object):
                             other_vehicles = event['other_actors']
                         else:
                             other_vehicles = None
+                        print(scenario_name, match_position)
                         scenario_subtype = RouteParser.get_scenario_type(scenario_name, match_position, trajectory)
+                        print(scenario_subtype)
                         if scenario_subtype is None:
                             continue
                         scenario_description = {

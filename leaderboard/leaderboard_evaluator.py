@@ -85,7 +85,7 @@ WEATHERS = [
         carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
         # wetcloudy night
         carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # hardrain night: pick 19
+        # hardrain night
         carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
         # softrain night
         carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
@@ -478,63 +478,101 @@ def main():
 
 
 
+    multi_actors_scenarios = ['Scenario4']
     if using_customized_route_and_scenario:
-        route_prefix = 'leaderboard/data/customized_routes/route_'
-        routes = [4]
         arguments.scenarios = 'leaderboard/data/customized_scenarios.json'
+        town_names = ['Town01']
+        scenarios = ['Scenario4']
+        directions = ['right']
+        routes = [0]
     else:
         route_prefix = 'leaderboard/data/routes/route_'
+        town_names = [None]
+        scenarios = [None]
+        directions = [None]
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
         weather_indexes = weather_indexes[:1]
 
     time_start = time.time()
-    for weather_index in weather_indexes:
-        arguments.weather_index = weather_index
-        os.environ['WEATHER_INDEX'] = str(weather_index)
 
-        for route in routes:
-            # addition
-            # dx: -10~10
-            # dy: -5~50
-            # dyaw: -90~90
-            # d_activation_dist: -20~20
-            # _other_actor_target_velocity: 0~20
-            # actor_type: see specs.txt for a detailed options
-            dx = 0
-            dy = 0
-            dyaw = 0
-            d_activation_dist = 0
-            _other_actor_target_velocity = 5
-            actor_type = 'vehicle.diamondback.century'
+    for town_name in town_names:
+        for scenario in scenarios:
+            if scenario not in multi_actors_scenarios:
+                directions = [None]
+            for dir in directions:
+                for weather_index in weather_indexes:
+                    arguments.weather_index = weather_index
+                    os.environ['WEATHER_INDEX'] = str(weather_index)
 
-            if using_customized_route_and_scenario:
-                dx = 0
-                dy = 5
-                dyaw = -45
-                d_activation_dist = 0
-                _other_actor_target_velocity = 5
+                    if using_customized_route_and_scenario:
 
+                        town_scenario_direction = town_name + '/' + scenario
 
-            customized_data = {'dx': dx, 'dy': dy, 'dyaw': dyaw, 'd_activation_dist': d_activation_dist, '_other_actor_target_velocity': _other_actor_target_velocity, 'using_customized_route_and_scenario':using_customized_route_and_scenario, 'actor_type': actor_type}
+                        folder_1 = os.environ['SAVE_FOLDER'] + '/' + town_name
+                        folder_2 = folder_1 + '/' + scenario
+                        if not os.path.exists(folder_1):
+                            os.mkdir(folder_1)
+                        if not os.path.exists(folder_2):
+                            os.mkdir(folder_2)
+                        if scenario in multi_actors_scenarios:
+                            town_scenario_direction += '/' + dir
+                            folder_2 += '/' + dir
+                            if not os.path.exists(folder_2):
+                                os.mkdir(folder_2)
 
 
-            route_str = str(route)
-            if route < 10:
-                route_str = '0'+route_str
-            arguments.routes = route_prefix+route_str+'.xml'
-            os.environ['ROUTES'] = arguments.routes
 
-            try:
-                leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
-                leaderboard_evaluator.run(arguments, customized_data)
+                        os.environ['SAVE_FOLDER'] = folder_2
+                        arguments.save_folder = os.environ['SAVE_FOLDER']
 
-            except Exception as e:
-                traceback.print_exc()
-            finally:
-                del leaderboard_evaluator
-            print('time elapsed :', time.time()-time_start)
+                        route_prefix = 'leaderboard/data/customized_routes/' + town_scenario_direction + '/route_'
+
+
+
+                    for route in routes:
+                        # addition
+                        # dx: -10~10
+                        # dy: -5~50
+                        # dyaw: -90~90
+                        # d_activation_dist: -20~20
+                        # _other_actor_target_velocity: 0~20
+                        # actor_type: see specs.txt for a detailed options
+                        dx = 0
+                        dy = 0
+                        dyaw = 0
+                        d_activation_dist = 0
+                        _other_actor_target_velocity = 5
+                        actor_type = 'vehicle.diamondback.century'
+
+                        if using_customized_route_and_scenario:
+                            dx = 0
+                            dy = 0
+                            dyaw = -40
+                            d_activation_dist = 0
+                            _other_actor_target_velocity = 5
+
+
+                        customized_data = {'dx': dx, 'dy': dy, 'dyaw': dyaw, 'd_activation_dist': d_activation_dist, '_other_actor_target_velocity': _other_actor_target_velocity, 'using_customized_route_and_scenario':using_customized_route_and_scenario, 'actor_type': actor_type}
+
+
+                        route_str = str(route)
+                        if route < 10:
+                            route_str = '0'+route_str
+                        arguments.routes = route_prefix+route_str+'.xml'
+                        os.environ['ROUTES'] = arguments.routes
+
+
+                        try:
+                            leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
+                            leaderboard_evaluator.run(arguments, customized_data)
+
+                        except Exception as e:
+                            traceback.print_exc()
+                        finally:
+                            del leaderboard_evaluator
+                        print('time elapsed :', time.time()-time_start)
 
 
 if __name__ == '__main__':

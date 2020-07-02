@@ -119,7 +119,7 @@ class ScenarioManager(object):
         # CarlaDataProvider.register_actors(self.other_actors)
         # To print the scenario tree uncomment the next line
         # py_trees.display.render_dot_tree(self.scenario_tree)
-        print('-'*100, self._track)
+
         if self._agent is not None:
             self._agent.setup_sensors(self.ego_vehicles[0], self._debug_mode, self._track)
 
@@ -254,10 +254,6 @@ class ScenarioManager(object):
             # addition: new event
             print("> - On side walk [{}]:         {} times".format(on_side_walk_symbol, on_side_walk))
             print("> - Wrong lane [{}]:           {} times\n".format(wrong_lane_symbol, wrong_lane))
-
-            with open('misbehaviors_log.txt', 'a') as f_out:
-                f_out.write('-'*25+pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']+'-'*25+'\n')
-                f_out.write('Route Completed: '+str(route_completed)+'%\n')
 
     def _tick_scenario(self, timestamp):
         """

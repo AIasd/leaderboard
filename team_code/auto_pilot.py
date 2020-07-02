@@ -203,7 +203,7 @@ class AutoPilot(MapAgent):
         frame = self.step
 
         speed = tick_data['speed']
-        string = string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = os.environ['SAVE_FOLDER'] + '/' + pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
 
         center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
         left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)

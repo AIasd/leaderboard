@@ -226,37 +226,37 @@ class RouteScenario(BasicScenario):
 
         # The following code prints out the planned route
 
-        # for i, (transform, command) in enumerate(route):
-        #     x = transform.location.x
-        #     y = transform.location.y
-        #     z = transform.location.z
-        #     pitch = transform.rotation.pitch
-        #     yaw = transform.rotation.yaw
-        #     if i == 0:
-        #         s = 'start'
-        #         x_s = [x]
-        #         y_s = [y]
-        #     elif i == n-1:
-        #         s = 'end'
-        #         x_e = [x]
-        #         y_e = [y]
-        #     else:
-        #         s = 'point'
-        #         x_list.append(x)
-        #         y_list.append(y)
+        for i, (transform, command) in enumerate(route):
+            x = transform.location.x
+            y = transform.location.y
+            z = transform.location.z
+            pitch = transform.rotation.pitch
+            yaw = transform.rotation.yaw
+            if i == 0:
+                s = 'start'
+                x_s = [x]
+                y_s = [y]
+            elif i == n-1:
+                s = 'end'
+                x_e = [x]
+                y_e = [y]
+            else:
+                s = 'point'
+                x_list.append(x)
+                y_list.append(y)
 
             # print(s, x, y, z, pitch, yaw, command)
 
-        # import matplotlib.pyplot as plt
-        # plt.gca().invert_yaxis()
-        # plt.scatter(x_list, y_list)
-        # plt.scatter(x_s, y_s, c='red', linewidths=5)
-        # plt.scatter(x_e, y_e, c='black', linewidths=5)
-        #
-        # plt.show()
+        import matplotlib.pyplot as plt
+        plt.gca().invert_yaxis()
+        plt.scatter(x_list, y_list)
+        plt.scatter(x_s, y_s, c='red', linewidths=5)
+        plt.scatter(x_e, y_e, c='black', linewidths=5)
+
+        plt.show()
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
-
+        print('potential_scenarios_definitions :', potential_scenarios_definitions)
         self.route = route
         CarlaDataProvider.set_ego_vehicle_route(convert_transform_to_location(self.route))
 
