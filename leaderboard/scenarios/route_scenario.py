@@ -36,7 +36,7 @@ from srunner.scenarios.maneuver_opposite_direction import ManeuverOppositeDirect
 from srunner.scenarios.junction_crossing_route import SignalJunctionCrossingRoute, NoSignalJunctionCrossingRoute
 # addition
 from srunner.scenarios.customized.right_turn_follow_slow_car import RightTurnFollowSlowCar
-
+from srunner.scenarios.customized.intersection import Intersection
 
 from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest, OnSidewalkTest, WrongLaneTest)
 
@@ -59,7 +59,8 @@ NUMBER_CLASS_TRANSLATION = {
     "Scenario8": SignalJunctionCrossingRoute,
     "Scenario9": SignalJunctionCrossingRoute,
     "Scenario10": NoSignalJunctionCrossingRoute,
-    "Scenario11": RightTurnFollowSlowCar
+    "Scenario11": RightTurnFollowSlowCar,
+    "Scenario12": Intersection
 }
 
 
@@ -426,7 +427,7 @@ class RouteScenario(BasicScenario):
             route_var_name = "ScenarioRouteNumber{}".format(scenario_number)
             scenario_configuration.route_var_name = route_var_name
             try:
-                if definition['name'] == 'Scenario4':
+                if definition['name'] in ['Scenario4', 'Scenario12']:
                     scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout, customized_data=self.customized_data)
                 else:
                     scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout)
