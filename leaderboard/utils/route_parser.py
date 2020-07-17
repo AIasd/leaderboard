@@ -283,7 +283,6 @@ class RouteParser(object):
 
         for town_name in world_annotations.keys():
             if town_name != route_name:
-                print(town_name, route_name)
                 continue
             scenarios = world_annotations[town_name]
             for scenario in scenarios:  # For each existent scenario

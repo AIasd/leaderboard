@@ -53,6 +53,9 @@ from leaderboard.utils.route_indexer import RouteIndexer
 from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
+
+from customized_utils import create_transform
+
 # addition
 WEATHERS = [
         carla.WeatherParameters.ClearNoon,
@@ -464,139 +467,157 @@ def main():
 
     arguments = parser.parse_args()
     arguments.debug = True
-
     statistics_manager = StatisticsManager()
-    # 0, 1, 2, 3, 10, 11, 14, 15, 19
-    # only 15 record vehicle's location for red light run
 
 
 
-
-    # weather_indexes is a subset of integers in [0, 20]
-    weather_indexes = [2]
-    routes = [i for i in range(0, 1)]
-
+    # Fixed Hyperparameters
     using_customized_route_and_scenario = True
-
     multi_actors_scenarios = ['Scenario12']
     arguments.scenarios = 'leaderboard/data/fuzzing_scenarios.json'
-    town_names = ['Town10HD']
-    scenarios = ['Scenario12']
-    directions = ['right']
-    routes = [0]
-
-
-    time_start = time.time()
-
-    for town_name in town_names:
-        for scenario in scenarios:
-            for dir in directions:
-                for weather_index in weather_indexes:
-                    arguments.weather_index = weather_index
-                    os.environ['WEATHER_INDEX'] = str(weather_index)
-
-
-                    town_scenario_direction = town_name + '/' + scenario
-
-                    folder_1 = os.environ['SAVE_FOLDER'] + '/' + town_name
-                    folder_2 = folder_1 + '/' + scenario
-                    if not os.path.exists(folder_1):
-                        os.mkdir(folder_1)
-                    if not os.path.exists(folder_2):
-                        os.mkdir(folder_2)
-                    if scenario in multi_actors_scenarios:
-                        town_scenario_direction += '/' + dir
-                        folder_2 += '/' + dir
-                        if not os.path.exists(folder_2):
-                            os.mkdir(folder_2)
+    town_name = 'Town10HD'
+    scenario = 'Scenario12'
+    direction = 'right'
+    route = 0
+    # sample_factor is an integer between [1, 5]
+    sample_factor = 5
+    # waypoints_num_limit: the maximum number of waypoints that we consider to perturb.
+    waypoints_num_limit = 10
+    # lane_width = 3.5
+    max_num_of_vehicle = 2
+    max_num_of_pedestrians = 2
 
 
 
-                    os.environ['SAVE_FOLDER'] = folder_2
-                    arguments.save_folder = os.environ['SAVE_FOLDER']
-
-                    route_prefix = 'leaderboard/data/customized_routes/' + town_scenario_direction + '/route_'
-
-                    def create_transform(x, y, z, pitch, yaw, roll):
-                        location = carla.Location(x, y, z)
-                        rotation = carla.Rotation(pitch, yaw, roll)
-                        transform = carla.Transform(location, rotation)
-                        return transform
-
-                    for route in routes:
-
-                        route_str = str(route)
-                        if route < 10:
-                            route_str = '0'+route_str
-                        arguments.routes = route_prefix+route_str+'.xml'
-                        os.environ['ROUTES'] = arguments.routes
-
-                        # extract waypoints along route
-                        import xml.etree.ElementTree as ET
-                        tree = ET.parse(arguments.routes)
-                        route_waypoints = []
-
-                        # this iteration should only go once since we only keep one route per file
-                        for route in tree.iter("route"):
-                            route_id = route.attrib['id']
-                            route_town = route.attrib['town']
-
-                            for waypoint in route.iter('waypoint'):
-                                route_waypoints.append(carla.Transform(carla.Location(x=float(waypoint.attrib['x']), y=float(waypoint.attrib['y']), z=float(waypoint.attrib['z'])), carla.Rotation(float(waypoint.attrib['pitch']), float(waypoint.attrib['yaw']), float(waypoint.attrib['roll']))))
 
 
 
-                        # extract waypoints for the scenario
-                        world_annotations = RouteParser.parse_annotations_file(arguments.scenarios)
-                        info = world_annotations[town_name][0]["available_event_configurations"][0]
-
-                        center = info["center"]
-
-
-                        RouteParser.convert_waypoint_float(center)
-
-                        center_location = carla.Location(float(center['x']), float(center['y']), float(center['z']))
-                        center_rotation = carla.Rotation(float(center['pitch']), float(center['yaw']), 0.0)
-                        center_transform = carla.Transform(center_location, center_rotation)
-
-
-                        # Set up environment parameters
-                        friction = 0.1
-
-                        # Set up actors
-                        # pedestrians
-                        pedestrian_1_transform = create_transform(route_waypoints[0].location.x-2, route_waypoints[0].location.y-8, route_waypoints[0].location.z, route_waypoints[0].rotation.pitch, route_waypoints[0].rotation.yaw, route_waypoints[0].rotation.roll)
-
-                        # vehicles
-                        vehicle_1_transform = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-10, route_waypoints[1].location.z, route_waypoints[1].rotation.pitch, route_waypoints[1].rotation.yaw, route_waypoints[1].rotation.roll)
-
-                        static_1 = Static(model='static.prop.barrel', spawn_transform=center_transform)
-                        pedestrian_1 = Pedestrian(model='walker.pedestrian.0001', spawn_transform=pedestrian_1_transform, trigger_distance=20, speed=1.5, dist_to_travel=6, after_trigger_behavior='stop')
-                        vehicle_1 = Vehicle(model='vehicle.audi.a2', spawn_transform=vehicle_1_transform, avoid_collision=True, initial_speed=0, trigger_distance=10, targeted_waypoint=route_waypoints[3], targeted_speed=10, after_trigger_behavior='stop', color=(255, 255, 255))
-
-                        static_list = [static_1]
-                        pedestrian_list = [pedestrian_1]
-                        vehicle_list = [vehicle_1]
-
-                        customized_data = {
-                        'friction': friction,
-                        'static_list': static_list,
-                        'pedestrian_list': pedestrian_list,
-                        'vehicle_list': vehicle_list,
-                        'center': center, 'using_customized_route_and_scenario':True,
-                        'destination': route_waypoints[-1].location}
+    # Parameters to optimize
+    # Set up environment parameters
+    # real, [0, 1]
+    friction = 0.1
+    # integer, [0, 20]
+    weather_index = 2
 
 
 
-                        try:
-                            leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
-                            leaderboard_evaluator.run(arguments, customized_data)
 
-                        except Exception as e:
-                            traceback.print_exc()
-                        finally:
-                            del leaderboard_evaluator
-                        print('time elapsed :', time.time()-time_start)
+    # Laundry Stuff-------------------------------------------------------------
+    arguments.weather_index = weather_index
+    os.environ['WEATHER_INDEX'] = str(weather_index)
+
+    town_scenario_direction = town_name + '/' + scenario
+
+    folder_1 = os.environ['SAVE_FOLDER'] + '/' + town_name
+    folder_2 = folder_1 + '/' + scenario
+    if not os.path.exists(folder_1):
+        os.mkdir(folder_1)
+    if not os.path.exists(folder_2):
+        os.mkdir(folder_2)
+    if scenario in multi_actors_scenarios:
+        town_scenario_direction += '/' + dir
+        folder_2 += '/' + dir
+        if not os.path.exists(folder_2):
+            os.mkdir(folder_2)
+
+    os.environ['SAVE_FOLDER'] = folder_2
+    arguments.save_folder = os.environ['SAVE_FOLDER']
+
+    route_prefix = 'leaderboard/data/customized_routes/' + town_scenario_direction + '/route_'
+
+    route_str = str(route)
+    if route < 10:
+        route_str = '0'+route_str
+    arguments.routes = route_prefix+route_str+'.xml'
+    os.environ['ROUTES'] = arguments.routes
+
+    # extract waypoints along route
+    import xml.etree.ElementTree as ET
+    tree = ET.parse(arguments.routes)
+    route_waypoints = []
+
+    # this iteration should only go once since we only keep one route per file
+    for route in tree.iter("route"):
+        route_id = route.attrib['id']
+        route_town = route.attrib['town']
+
+        for waypoint in route.iter('waypoint'):
+            route_waypoints.append(carla.Transform(carla.Location(x=float(waypoint.attrib['x']), y=float(waypoint.attrib['y']), z=float(waypoint.attrib['z'])), carla.Rotation(float(waypoint.attrib['pitch']), float(waypoint.attrib['yaw']), float(waypoint.attrib['roll']))))
+
+    # extract waypoints for the scenario
+    world_annotations = RouteParser.parse_annotations_file(arguments.scenarios)
+    info = world_annotations[town_name][0]["available_event_configurations"][0]
+
+    center = info["center"]
+    RouteParser.convert_waypoint_float(center)
+    center_location = carla.Location(float(center['x']), float(center['y']), float(center['z']))
+    center_rotation = carla.Rotation(float(center['pitch']), float(center['yaw']), 0.0)
+    center_transform = carla.Transform(center_location, center_rotation)
+    # --------------------------------------------------------------------------
+
+
+
+    # Set up actors
+    # ego car
+    ego_car_waypoints_perturbation = []
+    for i in range(waypoints_num_limit):
+        dx = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
+        dy = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
+        ego_car_waypoints_perturbation.append((dx, dy))
+
+    # static
+    static_1_transform = center_transform
+    static_1 = Static(model='static.prop.barrel', spawn_transform=static_1_transform)
+    static_list = [static_1]
+
+    # pedestrians
+    pedestrian_1_transform = create_transform(route_waypoints[0].location.x-2, route_waypoints[0].location.y-8, 0, 0, route_waypoints[0].rotation.yaw, 0)
+    pedestrian_1 = Pedestrian(model='walker.pedestrian.0001', spawn_transform=pedestrian_1_transform, trigger_distance=20, speed=1.5, dist_to_travel=6, after_trigger_behavior='stop')
+    pedestrian_list = [pedestrian_1]
+
+    # vehicles
+    waypoint_follower = False
+
+    vehicle_1_transform = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-10, 0, 0, route_waypoints[1].rotation.yaw, 0)
+
+    vehicle_1_dist_to_travel = 5
+    vehicle_1_target_direction = carla.Vector3D(x=0.2, y=1, z=0)
+
+    import numpy as np
+    vehicle_1_waypoints_perturbation = []
+    for i in range(waypoints_num_limit):
+        dx = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
+        dy = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
+        vehicle_1_waypoints_perturbation.append((dx, dy))
+
+    vehicle_1 = Vehicle(model='vehicle.audi.a2', spawn_transform=vehicle_1_transform, avoid_collision=True, initial_speed=0, trigger_distance=10, waypoint_follower=waypoint_follower, targeted_waypoint=route_waypoints[-1], dist_to_travel=vehicle_1_dist_to_travel,
+    target_direction=vehicle_1_target_direction,
+    targeted_speed=10, after_trigger_behavior='stop', color=(255, 255, 255), waypoints_perturbation=vehicle_1_waypoints_perturbation)
+
+    vehicle_list = [vehicle_1]
+
+
+    customized_data = {
+    'friction': friction,
+    'static_list': static_list,
+    'pedestrian_list': pedestrian_list,
+    'vehicle_list': vehicle_list,
+    'center': center, 'using_customized_route_and_scenario':True,
+    'destination': route_waypoints[-1].location,
+    'sample_factor': sample_factor,
+    'ego_car_waypoints_perturbation': ego_car_waypoints_perturbation}
+
+
+
+    try:
+        leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
+        leaderboard_evaluator.run(arguments, customized_data)
+
+    except Exception as e:
+        traceback.print_exc()
+    finally:
+        del leaderboard_evaluator
+
 
 
 if __name__ == '__main__':

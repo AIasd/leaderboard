@@ -41,7 +41,10 @@ from srunner.scenarios.customized.intersection import Intersection
 from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest, OnSidewalkTest, WrongLaneTest)
 
 from leaderboard.utils.route_parser import RouteParser, TRIGGER_THRESHOLD, TRIGGER_ANGLE_THRESHOLD
-from leaderboard.utils.route_manipulation import interpolate_trajectory
+from leaderboard.utils.route_manipulation import interpolate_trajectory, _get_latlon_ref, location_route_to_gps
+
+# addition
+from customized_utils import visualize_route, perturb_route
 
 ROUTESCENARIO = ["RouteScenario"]
 
@@ -219,49 +222,34 @@ class RouteScenario(BasicScenario):
         # Transform the scenario file into a dictionary
         world_annotations = RouteParser.parse_annotations_file(config.scenario_file)
 
+
+
+
         # prepare route's trajectory (interpolate and add the GPS route)
         gps_route, route = interpolate_trajectory(world, config.trajectory)
-        x_list = []
-        y_list = []
-        n = len(route)
+        config.agent.set_global_plan(gps_route, route, self.customized_data['sample_factor'])
 
-        # The following code prints out the planned route
+        perturb_route(config.agent._global_plan_world_coord, self.customized_data['ego_car_waypoints_perturbation'])
 
-        for i, (transform, command) in enumerate(route):
-            x = transform.location.x
-            y = transform.location.y
-            z = transform.location.z
-            pitch = transform.rotation.pitch
-            yaw = transform.rotation.yaw
-            if i == 0:
-                s = 'start'
-                x_s = [x]
-                y_s = [y]
-            elif i == n-1:
-                s = 'end'
-                x_e = [x]
-                y_e = [y]
-            else:
-                s = 'point'
-                x_list.append(x)
-                y_list.append(y)
 
-            # print(s, x, y, z, pitch, yaw, command)
 
-        import matplotlib.pyplot as plt
-        plt.gca().invert_yaxis()
-        plt.scatter(x_list, y_list)
-        plt.scatter(x_s, y_s, c='red', linewidths=5)
-        plt.scatter(x_e, y_e, c='black', linewidths=5)
 
-        plt.show()
+        visualize_route(config.agent._global_plan_world_coord)
+
+
+        # recalculate gps to accomodate the perturbation
+        lat_ref, lon_ref = _get_latlon_ref(world)
+        config.agent._global_plan = location_route_to_gps(route, lat_ref, lon_ref)
+        self.route = config.agent._global_plan_world_coord
+
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
         print('potential_scenarios_definitions :', potential_scenarios_definitions)
-        self.route = route
+
         CarlaDataProvider.set_ego_vehicle_route(convert_transform_to_location(self.route))
 
-        config.agent.set_global_plan(gps_route, self.route)
+
+
 
         # Sample the scenarios to be used for this route instance.
         self.sampled_scenarios_definitions = self._scenario_sampling(potential_scenarios_definitions)
