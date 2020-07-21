@@ -373,10 +373,10 @@ class LeaderboardEvaluator(object):
             self._cleanup(ego=True)
 
             route_indexer.save_state(self.save_path)
-
         # save global statistics
         # modification
         global_stats_record = self.statistics_manager.compute_global_statistics(route_indexer.total)
+        print('+'*100, 'self.save_path :', self.save_path)
         StatisticsManager.save_global_record(global_stats_record, self.sensors, self.save_path)
 
 

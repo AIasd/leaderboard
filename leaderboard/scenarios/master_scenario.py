@@ -114,6 +114,7 @@ class MasterScenario(BasicScenario):
 
         # addition: new event
         parallel_criteria.add_child(onsidewalk_criterion)
+        parallel_criteria.add_child(offroad_criterion)
         parallel_criteria.add_child(wronglane_criterion)
 
 

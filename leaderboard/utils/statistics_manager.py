@@ -45,7 +45,8 @@ class RouteRecord():
             'on_sidewalk': [],
             'outside_lane_infraction': [],
             'wrong_lane': [],
-            'collisions_invisible': []
+            'collisions_invisible': [],
+            'off_road': []
         }
 
         self.scores = {
@@ -294,6 +295,7 @@ class StatisticsManager(object):
                           '{:.3f}'.format(stats_dict['infractions']['vehicle_blocked']),
                           # addition: new event
                           '{:.3f}'.format(stats_dict['infractions']['on_sidewalk']),
+                          '{:.3f}'.format(stats_dict['infractions']['off_road']),
                           '{:.3f}'.format(stats_dict['infractions']['outside_lane_infraction']),
                           '{:.3f}'.format(stats_dict['infractions']['wrong_lane']),
                           '{:.3f}'.format(stats_dict['infractions']['collisions_invisible'])
@@ -310,7 +312,11 @@ class StatisticsManager(object):
                           'Off-road infractions',
                           'Route deviations',
                           'Route timeouts',
-                          'Agent blocked'
+                          'Agent blocked',
+                          'On Sidewalk',
+                          'Off Road',
+                          'Outside Lane',
+                          'Collisions Invisible'
                           ]
 
         data['sensors'] = sensors

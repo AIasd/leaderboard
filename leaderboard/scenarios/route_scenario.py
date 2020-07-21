@@ -244,7 +244,7 @@ class RouteScenario(BasicScenario):
 
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
-        print('potential_scenarios_definitions :', potential_scenarios_definitions)
+        print('\n potential_scenarios_definitions :', potential_scenarios_definitions, '\n')
 
         CarlaDataProvider.set_ego_vehicle_route(convert_transform_to_location(self.route))
 
@@ -594,6 +594,7 @@ class RouteScenario(BasicScenario):
         criteria.append(blocked_criterion)
 
         criteria.append(onsidewalk_criterion)
+        criteria.append(offroad_criterion)
         criteria.append(wronglane_criterion)
 
         return criteria
