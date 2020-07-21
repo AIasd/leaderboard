@@ -38,7 +38,7 @@ from srunner.scenarios.junction_crossing_route import SignalJunctionCrossingRout
 from srunner.scenarios.customized.right_turn_follow_slow_car import RightTurnFollowSlowCar
 from srunner.scenarios.customized.intersection import Intersection
 
-from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest, OnSidewalkTest, WrongLaneTest)
+from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, OutsideRouteLanesTest, RunningRedLightTest,  RunningStopTest, ActorSpeedAboveThresholdTest, OnSidewalkTest, OffRoadTest, WrongLaneTest)
 
 from leaderboard.utils.route_parser import RouteParser, TRIGGER_THRESHOLD, TRIGGER_ANGLE_THRESHOLD
 from leaderboard.utils.route_manipulation import interpolate_trajectory, _get_latlon_ref, location_route_to_gps
@@ -561,7 +561,7 @@ class RouteScenario(BasicScenario):
 
         route = convert_transform_to_location(self.route)
 
-        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=False)
+        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         route_criterion = InRouteTest(self.ego_vehicles[0],
                                       route=route,
@@ -581,8 +581,9 @@ class RouteScenario(BasicScenario):
                                                          below_threshold_max_time=90.0,
                                                          terminate_on_failure=True)
 
-        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0])
-        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0])
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)
+        offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=True)
+        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         criteria.append(completion_criterion)
         criteria.append(collision_criterion)

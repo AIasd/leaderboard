@@ -205,6 +205,7 @@ class ScenarioManager(object):
 
         # addition: new event
         on_side_walk = blackv.get("OnSideWalk")
+        off_road = blackv.get("OffRoad")
         wrong_lane = blackv.get("WrongLane")
 
         # If something failed, stop
@@ -225,7 +226,8 @@ class ScenarioManager(object):
         stop_symbol = get_symbol(stop_signs, 0, False)
 
         # addition: new event
-        on_side_walk_symbol = get_symbol(on_side_walk , 0, False)
+        on_side_walk_symbol = get_symbol(on_side_walk, 0, False)
+        off_road_symbol = get_symbol(off_road, 0, False)
         wrong_lane_symbol = get_symbol(wrong_lane, 0, False)
 
         if self.scenario_tree.status == py_trees.common.Status.FAILURE:
@@ -253,6 +255,7 @@ class ScenarioManager(object):
 
             # addition: new event
             print("> - On side walk [{}]:         {} times".format(on_side_walk_symbol, on_side_walk))
+            print("> - Off road [{}]:         {} times".format(off_road_symbol, off_road))
             print("> - Wrong lane [{}]:           {} times\n".format(wrong_lane_symbol, wrong_lane))
 
     def _tick_scenario(self, timestamp):

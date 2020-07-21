@@ -26,6 +26,7 @@ import torchvision
 # addition
 import pathlib
 import time
+import numpy as np
 
 import carla
 from srunner.scenariomanager.carla_data_provider import *
@@ -54,47 +55,8 @@ from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
-from customized_utils import create_transform
-
-# addition
-WEATHERS = [
-        carla.WeatherParameters.ClearNoon,
-        carla.WeatherParameters.ClearSunset,
-
-        carla.WeatherParameters.CloudyNoon,
-        carla.WeatherParameters.CloudySunset,
-
-        carla.WeatherParameters.WetNoon,
-        carla.WeatherParameters.WetSunset,
-
-        carla.WeatherParameters.MidRainyNoon,
-        carla.WeatherParameters.MidRainSunset,
-
-        carla.WeatherParameters.WetCloudyNoon,
-        carla.WeatherParameters.WetCloudySunset,
-
-        carla.WeatherParameters.HardRainNoon,
-        carla.WeatherParameters.HardRainSunset,
-
-        carla.WeatherParameters.SoftRainNoon,
-        carla.WeatherParameters.SoftRainSunset,
-
-        # night modes
-        # clear night
-        carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # cloudy night
-        carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # wet night
-        carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # midrain night
-        carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # wetcloudy night
-        carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # hardrain night
-        carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # softrain night
-        carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-]
+from customized_utils import create_transform, specify_args
+from object_types import WEATHERS
 
 
 
@@ -161,7 +123,6 @@ class LeaderboardEvaluator(object):
 
         # addition
         parent_folder = args.save_folder
-        print('-'*100, args.agent, os.environ['TEAM_AGENT'], '-'*100)
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
         string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
@@ -420,52 +381,8 @@ class LeaderboardEvaluator(object):
 
 
 def main():
-    description = "CARLA AD Leaderboard Evaluation: evaluate your Agent in CARLA scenarios\n"
 
-    # general parameters
-    parser = argparse.ArgumentParser(description=description, formatter_class=RawTextHelpFormatter)
-    parser.add_argument('--host', default='localhost',
-                        help='IP of the host server (default: localhost)')
-    parser.add_argument('--port', default='2000', help='TCP port to listen to (default: 2000)')
-    parser.add_argument('--sync', action='store_true',
-                        help='Forces the simulation to run synchronously')
-    parser.add_argument('--debug', type=int, help='Run with debug output', default=0)
-    parser.add_argument('--spectator', type=bool, help='Switch spectator view on?', default=True)
-    parser.add_argument('--record', type=str, default='',
-                        help='Use CARLA recording feature to create a recording of the scenario')
-    # modification: 30->15
-    parser.add_argument('--timeout', default="30.0",
-                        help='Set the CARLA client timeout value in seconds')
-
-    # simulation setup
-    parser.add_argument('--challenge-mode', action="store_true", help='Switch to challenge mode?')
-    parser.add_argument('--routes',
-                        help='Name of the route to be executed. Point to the route_xml_file to be executed.',
-                        required=True)
-    parser.add_argument('--scenarios',
-                        help='Name of the scenario annotation file to be mixed with the route.',
-                        required=True)
-    parser.add_argument('--repetitions',
-                        type=int,
-                        default=1,
-                        help='Number of repetitions per route.')
-
-    # agent-related options
-    parser.add_argument("-a", "--agent", type=str, help="Path to Agent's py file to evaluate", required=True)
-    parser.add_argument("--agent-config", type=str, help="Path to Agent's configuration file", default="")
-
-    parser.add_argument("--track", type=str, default='SENSORS', help="Participation track: SENSORS, MAP")
-    parser.add_argument('--resume', type=bool, default=False, help='Resume execution from last checkpoint?')
-    parser.add_argument("--checkpoint", type=str,
-                        default='./simulation_results.json',
-                        help="Path to checkpoint used for saving statistics and resuming")
-
-    # addition
-    parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
-    parser.add_argument("--save_folder", type=str, default='/home/zhongzzy9/Documents/self-driving-car/2020_CARLA_challenge/collected_data', help="Path to save simulation data")
-
-
-    arguments = parser.parse_args()
+    arguments = specify_args()
     arguments.debug = True
     statistics_manager = StatisticsManager()
 
@@ -515,8 +432,8 @@ def main():
     if not os.path.exists(folder_2):
         os.mkdir(folder_2)
     if scenario in multi_actors_scenarios:
-        town_scenario_direction += '/' + dir
-        folder_2 += '/' + dir
+        town_scenario_direction += '/' + direction
+        folder_2 += '/' + direction
         if not os.path.exists(folder_2):
             os.mkdir(folder_2)
 
@@ -556,13 +473,12 @@ def main():
     # --------------------------------------------------------------------------
 
 
-
     # Set up actors
     # ego car
     ego_car_waypoints_perturbation = []
     for i in range(waypoints_num_limit):
-        dx = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
-        dy = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
+        dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
+        dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
         ego_car_waypoints_perturbation.append((dx, dy))
 
     # static
@@ -576,23 +492,29 @@ def main():
     pedestrian_list = [pedestrian_1]
 
     # vehicles
-    waypoint_follower = False
+    waypoint_follower = True
 
-    vehicle_1_transform = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-10, 0, 0, route_waypoints[1].rotation.yaw, 0)
+    vehicle_1_transform = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-5, 0, 0, route_waypoints[1].rotation.yaw, 0)
 
+    # if waypoint_follower == False
     vehicle_1_dist_to_travel = 5
     vehicle_1_target_direction = carla.Vector3D(x=0.2, y=1, z=0)
 
-    import numpy as np
+    # else
+    targeted_waypoint = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-40, 0, 0, route_waypoints[1].rotation.yaw, 0)
+    # targeted_waypoint = route_waypoints[-1]
+
     vehicle_1_waypoints_perturbation = []
+
     for i in range(waypoints_num_limit):
-        dx = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
-        dy = np.clip(np.random.normal(0, 2, 1)[0], -1.6, 1.6)
+        dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
+        dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
         vehicle_1_waypoints_perturbation.append((dx, dy))
 
-    vehicle_1 = Vehicle(model='vehicle.audi.a2', spawn_transform=vehicle_1_transform, avoid_collision=True, initial_speed=0, trigger_distance=10, waypoint_follower=waypoint_follower, targeted_waypoint=route_waypoints[-1], dist_to_travel=vehicle_1_dist_to_travel,
+
+    vehicle_1 = Vehicle(model='vehicle.audi.a2', spawn_transform=vehicle_1_transform, avoid_collision=True, initial_speed=0, trigger_distance=10, waypoint_follower=waypoint_follower, targeted_waypoint=targeted_waypoint, dist_to_travel=vehicle_1_dist_to_travel,
     target_direction=vehicle_1_target_direction,
-    targeted_speed=10, after_trigger_behavior='stop', color=(255, 255, 255), waypoints_perturbation=vehicle_1_waypoints_perturbation)
+    targeted_speed=10, after_trigger_behavior='stop', color='(0, 0, 0)', waypoints_perturbation=vehicle_1_waypoints_perturbation)
 
     vehicle_list = [vehicle_1]
 
@@ -602,7 +524,7 @@ def main():
     'static_list': static_list,
     'pedestrian_list': pedestrian_list,
     'vehicle_list': vehicle_list,
-    'center': center, 'using_customized_route_and_scenario':True,
+    'center_transform': center_transform, 'using_customized_route_and_scenario':True,
     'destination': route_waypoints[-1].location,
     'sample_factor': sample_factor,
     'ego_car_waypoints_perturbation': ego_car_waypoints_perturbation}

@@ -194,6 +194,9 @@ class StatisticsManager(object):
                         elif event.get_type() == TrafficEventType.OUTSIDE_LANE_INFRACTION:
                             print('outside_lane_infraction')
                             route_record.infractions['outside_lane_infraction'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.OFF_ROAD_INFRACTION:
+                            print('off_road')
+                            route_record.infractions['off_road'].append(event.get_message())
                         elif event.get_type() == TrafficEventType.WRONG_WAY_INFRACTION:
                             print('wrong_way')
                             route_record.infractions['wrong_lane'].append(event.get_message())

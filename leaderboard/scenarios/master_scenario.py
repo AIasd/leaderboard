@@ -13,7 +13,7 @@ from srunner.scenarioconfigs.route_scenario_configuration import RouteConfigurat
 from srunner.scenariomanager.scenarioatomics.atomic_behaviors import Idle
 # addition: : new event
 # OutsideRouteLanesTest consists of OnSidewalkTest and WrongLaneTest
-from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, RunningRedLightTest, RunningStopTest, OutsideRouteLanesTest, OnSidewalkTest, WrongLaneTest)
+from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, RunningRedLightTest, RunningStopTest, OutsideRouteLanesTest, OnSidewalkTest, OffRoadTest, WrongLaneTest)
 from srunner.scenarios.basic_scenario import BasicScenario
 
 from leaderboard.scenarios.scenarioatomics.atomic_criteria import ActorSpeedAboveThresholdTest
@@ -76,7 +76,7 @@ class MasterScenario(BasicScenario):
         else:
             route = self.route
 
-        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=False)
+        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         route_criterion = InRouteTest(self.ego_vehicles[0],
                                       route=route,
@@ -88,8 +88,9 @@ class MasterScenario(BasicScenario):
         outsidelane_criterion = OutsideRouteLanesTest(self.ego_vehicles[0],route=route)
 
         # addition: new event
-        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0])
-        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0])
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)
+        offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=True)
+        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         red_light_criterion = RunningRedLightTest(self.ego_vehicles[0])
 
