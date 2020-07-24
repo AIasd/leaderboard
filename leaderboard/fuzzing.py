@@ -57,6 +57,7 @@ from leaderboard.utils.route_parser import RouteParser
 
 from customized_utils import create_transform, specify_args
 from object_types import WEATHERS
+from leaderboard.utils.route_manipulation import interpolate_trajectory
 
 
 
@@ -255,6 +256,18 @@ class LeaderboardEvaluator(object):
             self._cleanup()
             return
 
+        # Set center_transform and print out info
+        _, route = interpolate_trajectory(self.world, config.trajectory)
+        customized_data['center_transform'] = route[int(len(route)//2)][0]
+        print('-'*100)
+        print('center_transform :', '(', customized_data['center_transform'].location.x,  customized_data['center_transform'].location.y, ')')
+        print('friction :', customized_data['friction'])
+        print('weather_index :', customized_data['weather_index'])
+        print('num_of_static :', customized_data['num_of_static'])
+        print('num_of_pedestrians :', customized_data['num_of_pedestrians'])
+        print('num_of_vehicles :', customized_data['num_of_vehicles'])
+        print('-'*100)
+
         agent_class_name = getattr(self.module_agent, 'get_entry_point')()
         try:
             self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
@@ -367,7 +380,6 @@ class LeaderboardEvaluator(object):
         while route_indexer.peek():
             # setup
             config = route_indexer.next()
-
             # run
             self._load_and_run_scenario(args, config, customized_data)
             self._cleanup(ego=True)
@@ -376,7 +388,6 @@ class LeaderboardEvaluator(object):
         # save global statistics
         # modification
         global_stats_record = self.statistics_manager.compute_global_statistics(route_indexer.total)
-        print('+'*100, 'self.save_path :', self.save_path)
         StatisticsManager.save_global_record(global_stats_record, self.sensors, self.save_path)
 
 

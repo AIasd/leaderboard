@@ -19,6 +19,8 @@ from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from leaderboard.envs.sensor_interface import CallBack, OpenDriveMapReader, SpeedometerReader
 from leaderboard.autoagents.autonomous_agent import Track
 
+import time
+
 MAX_ALLOWED_RADIUS_SENSOR = 3.0
 MAX_ALLOWED_RADIUS_SENSOR = 1000.0
 
@@ -167,10 +169,13 @@ class AgentWrapper(object):
 
         self._validate_sensor_configuration(track)
 
+        s = time.time()
         while not self._agent.all_sensors_ready():
             if debug_mode:
                 print(" waiting for one data reading from sensors...")
             CarlaDataProvider.get_world().tick()
+            if time.time() - s > 5:
+                raise Exception('Timeout when setting up sensors')
 
     def _validate_sensor_configuration(self, selected_track):
         """

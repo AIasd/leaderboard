@@ -234,7 +234,7 @@ class RouteScenario(BasicScenario):
 
 
 
-        visualize_route(config.agent._global_plan_world_coord)
+        # visualize_route(config.agent._global_plan_world_coord)
 
 
         # recalculate gps to accomodate the perturbation
