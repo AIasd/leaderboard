@@ -259,14 +259,15 @@ class LeaderboardEvaluator(object):
         # Set center_transform and print out info
         _, route = interpolate_trajectory(self.world, config.trajectory)
         customized_data['center_transform'] = route[int(len(route)//2)][0]
-        print('-'*100)
-        print('center_transform :', '(', customized_data['center_transform'].location.x,  customized_data['center_transform'].location.y, ')')
-        print('friction :', customized_data['friction'])
-        print('weather_index :', customized_data['weather_index'])
-        print('num_of_static :', customized_data['num_of_static'])
-        print('num_of_pedestrians :', customized_data['num_of_pedestrians'])
-        print('num_of_vehicles :', customized_data['num_of_vehicles'])
-        print('-'*100)
+        if 'weather_index' in customized_data:
+            print('-'*100)
+            print('center_transform :', '(', customized_data['center_transform'].location.x,  customized_data['center_transform'].location.y, ')')
+            print('friction :', customized_data['friction'])
+            print('weather_index :', customized_data['weather_index'])
+            print('num_of_static :', customized_data['num_of_static'])
+            print('num_of_pedestrians :', customized_data['num_of_pedestrians'])
+            print('num_of_vehicles :', customized_data['num_of_vehicles'])
+            print('-'*100)
 
         agent_class_name = getattr(self.module_agent, 'get_entry_point')()
         try:
