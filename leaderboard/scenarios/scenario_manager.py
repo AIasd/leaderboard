@@ -76,9 +76,12 @@ class ScenarioManager(object):
         self.start_system_time = None
         self.end_system_time = None
 
+        # modification: disable when running multi-process via dask
         # Register the scenario tick as callback for the CARLA world
         # Use the callback_id inside the signal handler to allow external interrupts
-        signal.signal(signal.SIGINT, self._signal_handler)
+        # signal.signal(signal.SIGINT, self._signal_handler)
+        
+
 
     def _signal_handler(self, signum, frame):
         """

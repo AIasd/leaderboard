@@ -261,6 +261,7 @@ class LeaderboardEvaluator(object):
         customized_data['center_transform'] = route[int(len(route)//2)][0]
         if 'weather_index' in customized_data:
             print('-'*100)
+            print('port :', customized_data['port'])
             print('center_transform :', '(', customized_data['center_transform'].location.x,  customized_data['center_transform'].location.y, ')')
             print('friction :', customized_data['friction'])
             print('weather_index :', customized_data['weather_index'])
