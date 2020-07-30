@@ -22,8 +22,8 @@ class MapAgent(BaseAgent):
 
         return result
 
-    def set_global_plan(self, global_plan_gps, global_plan_world_coord):
-        super().set_global_plan(global_plan_gps, global_plan_world_coord)
+    def set_global_plan(self, global_plan_gps, global_plan_world_coord, sample_factor=1):
+        super().set_global_plan(global_plan_gps, global_plan_world_coord, sample_factor)
 
         self._plan_HACK = global_plan_world_coord
         self._plan_gps_HACK = global_plan_gps

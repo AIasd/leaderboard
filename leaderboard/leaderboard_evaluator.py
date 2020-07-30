@@ -159,7 +159,7 @@ class LeaderboardEvaluator(object):
         print('-'*100, args.agent, os.environ['TEAM_AGENT'], '-'*100)
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = pathlib.Path(os.environ['ROUTES']).stem
         current_record_folder = pathlib.Path(parent_folder) / string
 
         if os.path.exists(str(current_record_folder)):

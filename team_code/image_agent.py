@@ -98,7 +98,7 @@ class ImageAgent(BaseAgent):
         self.save_path = None
 
         parent_folder = os.environ['SAVE_FOLDER']
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = pathlib.Path(os.environ['ROUTES']).stem
         self.save_path = pathlib.Path(parent_folder) / string
 
 
@@ -113,7 +113,7 @@ class ImageAgent(BaseAgent):
         far_command = tick_data['far_command']
         speed = tick_data['speed']
 
-        string = os.environ['SAVE_FOLDER']+'/'+pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = os.environ['SAVE_FOLDER']+'/'+pathlib.Path(os.environ['ROUTES']).stem
 
 
 

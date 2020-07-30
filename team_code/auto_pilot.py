@@ -89,9 +89,9 @@ class AutoPilot(MapAgent):
 
         self.save_path = None
 
-        if path_to_conf_file:
-            string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-            self.save_path = pathlib.Path(path_to_conf_file) / string
+        parent_folder = os.environ['SAVE_FOLDER']
+        string = pathlib.Path(os.environ['ROUTES']).stem
+        self.save_path = pathlib.Path(parent_folder) / string
 
 
 
@@ -203,7 +203,7 @@ class AutoPilot(MapAgent):
         frame = self.step
 
         speed = tick_data['speed']
-        string = os.environ['SAVE_FOLDER'] + '/' + pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = os.environ['SAVE_FOLDER'] + '/' + pathlib.Path(os.environ['ROUTES']).stem
 
         center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
         left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)

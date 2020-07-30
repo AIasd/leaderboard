@@ -27,6 +27,10 @@ import torchvision
 import pathlib
 import time
 import numpy as np
+import traceback
+import logging
+import shlex
+import subprocess
 
 import carla
 from srunner.scenariomanager.carla_data_provider import *
@@ -55,10 +59,12 @@ from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
-from customized_utils import create_transform, specify_args
+from customized_utils import create_transform, specify_args, is_port_in_use
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
+from psutil import process_iter
+from signal import SIGTERM, SIGKILL
 
 
 sensors_to_icons = {
@@ -88,7 +94,7 @@ class LeaderboardEvaluator(object):
     # modification: 20.0 -> 10.0
     frame_rate = 10.0      # in Hz
 
-    def __init__(self, args, statistics_manager, customized_data=None):
+    def __init__(self, args, statistics_manager, launch_server=False, episode_max_time=10000):
         """
         Setup CARLA client and world
         Setup ScenarioManager
@@ -97,11 +103,44 @@ class LeaderboardEvaluator(object):
         self.statistics_manager = statistics_manager
         self.sensors = []
         self._vehicle_lights = carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
+        self.episode_max_time = episode_max_time
 
         # First of all, we need to create the client that will send the requests
         # to the simulator. Here we'll assume the simulator is accepting
         # requests in the localhost at port 2000.
-        self.client = carla.Client(args.host, int(args.port))
+
+
+        if not is_port_in_use(args.port) or launch_server:
+            while is_port_in_use(args.port):
+                for proc in process_iter():
+                    for conns in proc.connections(kind='inet'):
+                        if conns.laddr.port == args.port:
+                            proc.send_signal(SIGKILL)
+                            print('-'*500, 'kill server at port', args.port)
+                time.sleep(2)
+
+            port_to_gpu = {2000:0, 2003:1, 2006:0, 2009:1}
+            gpu = port_to_gpu[args.port]
+            cmd_list = shlex.split('sudo -E -u zhongzzy9  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' DISPLAY= sh /home/zhongzzy9/Documents/self-driving-car/carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
+            subprocess.Popen(cmd_list)
+            print('-'*500, 'start server at port', args.port)
+            time.sleep(5)
+
+
+        while True:
+            try:
+                self.client = carla.Client(args.host, int(args.port))
+                break
+            except:
+                logging.exception("__init__ error")
+                traceback.print_exc()
+
+
+
+
+
+
+
         if args.timeout:
             self.client_timeout = float(args.timeout)
         self.client.set_timeout(self.client_timeout)
@@ -116,7 +155,7 @@ class LeaderboardEvaluator(object):
         self.module_agent = importlib.import_module(module_name)
 
         # Create the ScenarioManager
-        self.manager = ScenarioManager(args.debug, args.sync, args.challenge_mode, args.track, self.client_timeout)
+        self.manager = ScenarioManager(args.debug, args.sync, args.challenge_mode, args.track, self.client_timeout, self.episode_max_time)
 
         # Time control for summary purposes
         self._start_time = GameTime.get_time()
@@ -126,7 +165,7 @@ class LeaderboardEvaluator(object):
         parent_folder = args.save_folder
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = pathlib.Path(os.environ['ROUTES']).stem
         current_record_folder = pathlib.Path(parent_folder) / string
 
         if os.path.exists(str(current_record_folder)):
@@ -160,6 +199,9 @@ class LeaderboardEvaluator(object):
             del self.manager
         if hasattr(self, 'world') and self.world:
             del self.world
+
+        # addition: manually delete client to avoid RuntimeError: Resource temporarily unavailable
+        del self.client
 
     def _cleanup(self, ego=False):
         """
@@ -217,7 +259,17 @@ class LeaderboardEvaluator(object):
         Load a new CARLA world and provide data to CarlaDataProvider and CarlaDataProvider
         """
 
-        self.world = self.client.load_world(town)
+        while True:
+            try:
+                self.world = self.client.load_world(town)
+                break
+            except:
+                logging.exception("_load_and_wait_for_world error")
+                traceback.print_exc()
+
+
+
+
         settings = self.world.get_settings()
         settings.fixed_delta_seconds = 1.0 / self.frame_rate
         settings.synchronous_mode = True

@@ -51,7 +51,7 @@ class ScenarioManager(object):
     5. If needed, cleanup with manager.stop_scenario()
     """
 
-    def __init__(self, debug_mode=False, sync_mode=False, challenge_mode=False, track=None, timeout=10.0):
+    def __init__(self, debug_mode=False, sync_mode=False, challenge_mode=False, track=None, timeout=10.0, episode_max_time=10000):
         """
         Setups up the parameters, which will be filled at load_scenario()
         """
@@ -80,7 +80,9 @@ class ScenarioManager(object):
         # Register the scenario tick as callback for the CARLA world
         # Use the callback_id inside the signal handler to allow external interrupts
         # signal.signal(signal.SIGINT, self._signal_handler)
-        
+
+        self.episode_max_time = episode_max_time
+
 
 
     def _signal_handler(self, signum, frame):
@@ -139,10 +141,16 @@ class ScenarioManager(object):
 
         parent_folder = os.environ['SAVE_FOLDER']
 
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = pathlib.Path(os.environ['ROUTES']).stem
         save_path = pathlib.Path(parent_folder) / string
 
         step = 0
+
+        # hack: control the time of running
+        # debug:
+        s = time.time()
+
+
         with (save_path / 'measurements_loc.csv' ).open("a") as f_out:
             while self._running:
                 timestamp = None
@@ -160,6 +168,13 @@ class ScenarioManager(object):
                 loc = self.ego_vehicles[0].get_location()
                 f_out.write(str(loc.x)+','+str(loc.y)+'\n')
                 step += 1
+
+
+                # hack: control the time of running
+                # debug:
+                if time.time()-s > self.episode_max_time:
+                    self._running = False
+                    break
 
 
         self._watchdog.stop()
@@ -294,8 +309,7 @@ class ScenarioManager(object):
 
                 spectator = CarlaDataProvider.get_world().get_spectator()
                 ego_trans = self.ego_vehicles[0].get_transform()
-                spectator.set_transform(carla.Transform(ego_trans.location + carla.Location(z=50),
-                                                            carla.Rotation(pitch=-90)))
+                spectator.set_transform(carla.Transform(ego_trans.location + carla.Location(z=50), carla.Rotation(pitch=-90)))
 
             if self._agent is not None:
                 self.ego_vehicles[0].apply_control(ego_action)
