@@ -59,7 +59,7 @@ from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
-from customized_utils import create_transform, specify_args, is_port_in_use, port_to_gpu
+from customized_utils import create_transform, specify_args, is_port_in_use, port_to_gpu, make_hierarchical_dir
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
@@ -499,26 +499,22 @@ def main():
 
 
 
-
     # Laundry Stuff-------------------------------------------------------------
     arguments.weather_index = weather_index
     os.environ['WEATHER_INDEX'] = str(weather_index)
 
     town_scenario_direction = town_name + '/' + scenario
 
-    folder_1 = os.environ['SAVE_FOLDER'] + '/' + town_name
-    folder_2 = folder_1 + '/' + scenario
-    if not os.path.exists(folder_1):
-        os.mkdir(folder_1)
-    if not os.path.exists(folder_2):
-        os.mkdir(folder_2)
+
+    folders = [os.environ['SAVE_FOLDER'], town_name, scenario]
     if scenario in multi_actors_scenarios:
         town_scenario_direction += '/' + direction
-        folder_2 += '/' + direction
-        if not os.path.exists(folder_2):
-            os.mkdir(folder_2)
+        folders.append(direction)
 
-    os.environ['SAVE_FOLDER'] = folder_2
+
+    cur_folder_name = make_hierarchical_dir(folders)
+
+    os.environ['SAVE_FOLDER'] = cur_folder_name
     arguments.save_folder = os.environ['SAVE_FOLDER']
 
     route_prefix = 'leaderboard/data/customized_routes/' + town_scenario_direction + '/route_'
