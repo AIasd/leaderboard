@@ -59,7 +59,7 @@ from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
-from customized_utils import create_transform, specify_args, is_port_in_use
+from customized_utils import create_transform, specify_args, is_port_in_use, port_to_gpu
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
@@ -110,7 +110,7 @@ class LeaderboardEvaluator(object):
         # requests in the localhost at port 2000.
 
 
-        if not is_port_in_use(args.port) or launch_server:
+        if launch_server:
             while is_port_in_use(args.port):
                 for proc in process_iter():
                     for conns in proc.connections(kind='inet'):
@@ -119,7 +119,7 @@ class LeaderboardEvaluator(object):
                             print('-'*500, 'kill server at port', args.port)
                 time.sleep(2)
 
-            port_to_gpu = {2000:0, 2003:1, 2006:0, 2009:1}
+
             gpu = port_to_gpu[args.port]
             cmd_list = shlex.split('sudo -E -u zhongzzy9  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' DISPLAY= sh /home/zhongzzy9/Documents/self-driving-car/carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
             subprocess.Popen(cmd_list)
@@ -266,6 +266,22 @@ class LeaderboardEvaluator(object):
             except:
                 logging.exception("_load_and_wait_for_world error")
                 traceback.print_exc()
+
+                while is_port_in_use(args.port):
+                    for proc in process_iter():
+                        for conns in proc.connections(kind='inet'):
+                            if conns.laddr.port == args.port:
+                                proc.send_signal(SIGKILL)
+                                print('-'*500, 'kill server at port', args.port)
+                    time.sleep(2)
+
+                gpu = port_to_gpu[args.port]
+                cmd_list = shlex.split('sudo -E -u zhongzzy9  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' DISPLAY= sh /home/zhongzzy9/Documents/self-driving-car/carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
+                subprocess.Popen(cmd_list)
+                print('-'*500, 'start server at port', args.port)
+                time.sleep(5)
+
+                self.client = carla.Client(args.host, int(args.port))
 
 
 
