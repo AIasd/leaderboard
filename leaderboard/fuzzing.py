@@ -470,12 +470,14 @@ def main():
 
 
     # Fixed Hyperparameters
+    # if use_actors = False, no other actors will be generated
+    use_actors = False
     using_customized_route_and_scenario = True
     multi_actors_scenarios = ['Scenario12']
     arguments.scenarios = 'leaderboard/data/fuzzing_scenarios.json'
-    town_name = 'Town10HD'
+    town_name = 'Town03'
     scenario = 'Scenario12'
-    direction = 'right'
+    direction = 'front'
     route = 0
     # sample_factor is an integer between [1, 5]
     sample_factor = 5
@@ -549,52 +551,57 @@ def main():
     center_transform = carla.Transform(center_location, center_rotation)
     # --------------------------------------------------------------------------
 
+    if use_actors:
+        # Set up actors
 
-    # Set up actors
-    # ego car
-    ego_car_waypoints_perturbation = []
-    for i in range(waypoints_num_limit):
-        dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-        dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-        ego_car_waypoints_perturbation.append((dx, dy))
+        # ego car
+        ego_car_waypoints_perturbation = []
+        for i in range(waypoints_num_limit):
+            dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
+            dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
+            ego_car_waypoints_perturbation.append((dx, dy))
 
-    # static
-    static_1_transform = center_transform
-    static_1 = Static(model='static.prop.barrel', spawn_transform=static_1_transform)
-    static_list = [static_1]
+        # static
+        static_1_transform = center_transform
+        static_1 = Static(model='static.prop.barrel', spawn_transform=static_1_transform)
+        static_list = [static_1]
 
-    # pedestrians
-    pedestrian_1_transform = create_transform(route_waypoints[0].location.x-2, route_waypoints[0].location.y-8, 0, 0, route_waypoints[0].rotation.yaw, 0)
-    pedestrian_1 = Pedestrian(model='walker.pedestrian.0001', spawn_transform=pedestrian_1_transform, trigger_distance=20, speed=1.5, dist_to_travel=6, after_trigger_behavior='stop')
-    pedestrian_list = [pedestrian_1]
+        # pedestrians
+        pedestrian_1_transform = create_transform(route_waypoints[0].location.x-2, route_waypoints[0].location.y-8, 0, 0, route_waypoints[0].rotation.yaw, 0)
+        pedestrian_1 = Pedestrian(model='walker.pedestrian.0001', spawn_transform=pedestrian_1_transform, trigger_distance=20, speed=1.5, dist_to_travel=6, after_trigger_behavior='stop')
+        pedestrian_list = [pedestrian_1]
 
-    # vehicles
-    waypoint_follower = True
+        # vehicles
+        waypoint_follower = True
 
-    vehicle_1_transform = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-5, 0, 0, route_waypoints[1].rotation.yaw, 0)
+        vehicle_1_transform = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-5, 0, 0, route_waypoints[1].rotation.yaw, 0)
 
-    # if waypoint_follower == False
-    vehicle_1_dist_to_travel = 5
-    vehicle_1_target_direction = carla.Vector3D(x=0.2, y=1, z=0)
+        # if waypoint_follower == False
+        vehicle_1_dist_to_travel = 5
+        vehicle_1_target_direction = carla.Vector3D(x=0.2, y=1, z=0)
 
-    # else
-    targeted_waypoint = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-40, 0, 0, route_waypoints[1].rotation.yaw, 0)
-    # targeted_waypoint = route_waypoints[-1]
+        # else
+        targeted_waypoint = create_transform(route_waypoints[1].location.x, route_waypoints[1].location.y-40, 0, 0, route_waypoints[1].rotation.yaw, 0)
+        # targeted_waypoint = route_waypoints[-1]
 
-    vehicle_1_waypoints_perturbation = []
+        vehicle_1_waypoints_perturbation = []
 
-    for i in range(waypoints_num_limit):
-        dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-        dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-        vehicle_1_waypoints_perturbation.append((dx, dy))
+        for i in range(waypoints_num_limit):
+            dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
+            dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
+            vehicle_1_waypoints_perturbation.append((dx, dy))
 
 
-    vehicle_1 = Vehicle(model='vehicle.audi.a2', spawn_transform=vehicle_1_transform, avoid_collision=True, initial_speed=0, trigger_distance=10, waypoint_follower=waypoint_follower, targeted_waypoint=targeted_waypoint, dist_to_travel=vehicle_1_dist_to_travel,
-    target_direction=vehicle_1_target_direction,
-    targeted_speed=10, after_trigger_behavior='stop', color='(0, 0, 0)', waypoints_perturbation=vehicle_1_waypoints_perturbation)
+        vehicle_1 = Vehicle(model='vehicle.audi.a2', spawn_transform=vehicle_1_transform, avoid_collision=True, initial_speed=0, trigger_distance=10, waypoint_follower=waypoint_follower, targeted_waypoint=targeted_waypoint, dist_to_travel=vehicle_1_dist_to_travel,
+        target_direction=vehicle_1_target_direction,
+        targeted_speed=10, after_trigger_behavior='stop', color='(0, 0, 0)', waypoints_perturbation=vehicle_1_waypoints_perturbation)
 
-    vehicle_list = [vehicle_1]
-
+        vehicle_list = [vehicle_1]
+    else:
+        static_list = []
+        pedestrian_list = []
+        vehicle_list = []
+        ego_car_waypoints_perturbation = []
 
     customized_data = {
     'friction': friction,

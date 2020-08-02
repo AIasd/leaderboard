@@ -233,7 +233,6 @@ class RouteScenario(BasicScenario):
 
 
 
-
         # visualize_route(config.agent._global_plan_world_coord)
 
 
