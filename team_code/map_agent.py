@@ -10,17 +10,7 @@ def get_entry_point():
 
 
 class MapAgent(BaseAgent):
-    def sensors(self):
-        result = super().sensors()
-        result.append({
-            'type': 'sensor.camera.semantic_segmentation',
-            'x': 0.0, 'y': 0.0, 'z': 100.0,
-            'roll': 0.0, 'pitch': -90.0, 'yaw': 0.0,
-            'width': 512, 'height': 512, 'fov': 5 * 10.0,
-            'id': 'map'
-            })
-
-        return result
+    # remove the sensors since we made changes to base_agent.py
 
     def set_global_plan(self, global_plan_gps, global_plan_world_coord, sample_factor=1):
         super().set_global_plan(global_plan_gps, global_plan_world_coord, sample_factor)

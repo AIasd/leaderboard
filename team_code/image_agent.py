@@ -65,26 +65,6 @@ def debug_display(tick_data, target_cam, out, steer, throttle, brake, desired_sp
 
 
 class ImageAgent(BaseAgent):
-    # addition
-    def sensors(self):
-        result = super().sensors()
-        result.append({
-            'type': 'sensor.camera.semantic_segmentation',
-            'x': 0.0, 'y': 0.0, 'z': 100.0,
-            'roll': 0.0, 'pitch': -90.0, 'yaw': 0.0,
-            'width': 512, 'height': 512, 'fov': 5 * 10.0,
-            'id': 'map'
-            })
-        result.append({
-            'type': 'sensor.camera.rgb',
-            'x': -7, 'y': 0.0, 'z': 7,
-            'roll': 0.0, 'pitch': -45.0, 'yaw': 0.0,
-            'width': 256, 'height': 144, 'fov': 90,
-            'id': 'rgb_with_car'
-            })
-
-        return result
-
     def setup(self, path_to_conf_file):
         super().setup(path_to_conf_file)
 

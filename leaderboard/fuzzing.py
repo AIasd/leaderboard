@@ -110,6 +110,20 @@ class LeaderboardEvaluator(object):
         # requests in the localhost at port 2000.
 
 
+        # This is currently set to be consistent with os.environ['HAS_DISPLAY'].
+        # however, it is possible to control them separately.
+        if os.environ['HAS_DISPLAY'] == '1':
+            display_str = 'DISPLAY='
+        else:
+            display_str = ''
+
+
+
+        gpu = port_to_gpu[args.port]
+        self.cmd_list = shlex.split('sudo -E -u zhongzzy9  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' '+display_str+' sh /home/zhongzzy9/Documents/self-driving-car/carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
+
+
+
         if launch_server:
             while is_port_in_use(args.port):
                 for proc in process_iter():
@@ -118,11 +132,7 @@ class LeaderboardEvaluator(object):
                             proc.send_signal(SIGKILL)
                             print('-'*500, 'kill server at port', args.port)
                 time.sleep(2)
-
-
-            gpu = port_to_gpu[args.port]
-            cmd_list = shlex.split('sudo -E -u zhongzzy9  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' DISPLAY= sh /home/zhongzzy9/Documents/self-driving-car/carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
-            subprocess.Popen(cmd_list)
+            subprocess.Popen(self.cmd_list)
             print('-'*500, 'start server at port', args.port)
             time.sleep(5)
 
@@ -275,9 +285,7 @@ class LeaderboardEvaluator(object):
                                 print('-'*500, 'kill server at port', args.port)
                     time.sleep(2)
 
-                gpu = port_to_gpu[args.port]
-                cmd_list = shlex.split('sudo -E -u zhongzzy9  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' DISPLAY= sh /home/zhongzzy9/Documents/self-driving-car/carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
-                subprocess.Popen(cmd_list)
+                subprocess.Popen(self.cmd_list)
                 print('-'*500, 'start server at port', args.port)
                 time.sleep(5)
 
@@ -345,6 +353,7 @@ class LeaderboardEvaluator(object):
             self.sensors = [sensors_to_icons[sensor['type']] for sensor in self.agent_instance.sensors()]
         except Exception as e:
             print("Could not setup required agent due to {}".format(e))
+            traceback.print_exc()
             self._cleanup()
             return
 
