@@ -113,9 +113,9 @@ class LeaderboardEvaluator(object):
         # This is currently set to be consistent with os.environ['HAS_DISPLAY'].
         # however, it is possible to control them separately.
         if os.environ['HAS_DISPLAY'] == '1':
-            display_str = 'DISPLAY='
-        else:
             display_str = ''
+        else:
+            display_str = 'DISPLAY='
 
 
 
