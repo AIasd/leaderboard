@@ -135,7 +135,9 @@ class ImageAgent(BaseAgent):
         self._world = self._vehicle.get_world()
 
     def tick(self, input_data):
-        self.gather_info()
+
+
+
         result = super().tick(input_data)
         result['image'] = np.concatenate(tuple(result[x] for x in ['rgb', 'rgb_left', 'rgb_right']), -1)
 
@@ -264,6 +266,7 @@ class ImageAgent(BaseAgent):
             title_row = ','.join(['frame_id', 'far_command', 'speed', 'steering', 'throttle', 'brake', 'center', 'left', 'right'])
             with (self.save_path / 'measurements.csv' ).open("a") as f_out:
                 f_out.write(title_row+'\n')
-        # if self.step % 10 == 0:
+        if self.step % 5 == 0:
+            self.gather_info()
         self.save(steer, throttle, brake, tick_data)
         return control

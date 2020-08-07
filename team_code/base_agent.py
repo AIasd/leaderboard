@@ -234,5 +234,5 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                                 self.wronglane_d = d
                                 f_out.write('wronglane_d,'+str(self.wronglane_d)+'\n')
 
-            get_d(-0.1, dev_angle)
-            get_d(0.1, dev_angle)
+            get_d(-0.2, dev_angle)
+            get_d(0.2, dev_angle)

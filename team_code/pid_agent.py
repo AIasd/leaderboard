@@ -196,7 +196,8 @@ class PIDAgent(MapAgent):
             cv2.waitKey(1)
 
 
-
+        if self.step % 5 == 0:
+            self.gather_info()
         # if self.step % 10 == 0:
         self.save('', steer, throttle, brake, self.target_speed, data)
 

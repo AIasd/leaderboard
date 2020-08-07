@@ -193,6 +193,8 @@ class AutoPilot(MapAgent):
         control.throttle = throttle
         control.brake = float(brake)
 
+        if self.step % 5 == 0:
+            self.gather_info()
         # if self.step % 10 == 0:
         self.save(far_command, steer, throttle, brake, target_speed, data)
 
