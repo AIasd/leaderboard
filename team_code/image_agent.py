@@ -266,7 +266,7 @@ class ImageAgent(BaseAgent):
             title_row = ','.join(['frame_id', 'far_command', 'speed', 'steering', 'throttle', 'brake', 'center', 'left', 'right'])
             with (self.save_path / 'measurements.csv' ).open("a") as f_out:
                 f_out.write(title_row+'\n')
-        if self.step % 5 == 0:
+        if self.step % 2 == 0:
             self.gather_info()
         self.save(steer, throttle, brake, tick_data)
         return control
