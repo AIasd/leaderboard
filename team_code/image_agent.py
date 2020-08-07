@@ -135,6 +135,7 @@ class ImageAgent(BaseAgent):
         self._world = self._vehicle.get_world()
 
     def tick(self, input_data):
+        self.gather_info()
         result = super().tick(input_data)
         result['image'] = np.concatenate(tuple(result[x] for x in ['rgb', 'rgb_left', 'rgb_right']), -1)
 

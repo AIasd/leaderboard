@@ -349,6 +349,11 @@ class LeaderboardEvaluator(object):
         agent_class_name = getattr(self.module_agent, 'get_entry_point')()
         try:
             self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+
+            # addition
+            # self.agent_instance.set_trajectory(config.trajectory)
+            self.agent_instance.set_deviations_path(args.deviations_folder)
+
             config.agent = self.agent_instance
             self.sensors = [sensors_to_icons[sensor['type']] for sensor in self.agent_instance.sensors()]
         except Exception as e:

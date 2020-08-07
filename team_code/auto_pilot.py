@@ -14,39 +14,39 @@ from team_code.map_agent import MapAgent
 from team_code.pid_controller import PIDController
 
 
-HAS_DISPLAY = True
-DEBUG = False
-WEATHERS = [
-        carla.WeatherParameters.ClearNoon,
-        carla.WeatherParameters.ClearSunset,
-
-        carla.WeatherParameters.CloudyNoon,
-        carla.WeatherParameters.CloudySunset,
-
-        carla.WeatherParameters.WetNoon,
-        carla.WeatherParameters.WetSunset,
-
-        carla.WeatherParameters.MidRainyNoon,
-        carla.WeatherParameters.MidRainSunset,
-
-        carla.WeatherParameters.WetCloudyNoon,
-        carla.WeatherParameters.WetCloudySunset,
-
-        carla.WeatherParameters.HardRainNoon,
-        carla.WeatherParameters.HardRainSunset,
-
-        carla.WeatherParameters.SoftRainNoon,
-        carla.WeatherParameters.SoftRainSunset,
-
-        # night modes
-        carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-]
+HAS_DISPLAY = int(os.environ.get('HAS_DISPLAY', 0))
+DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
+# WEATHERS = [
+#         carla.WeatherParameters.ClearNoon,
+#         carla.WeatherParameters.ClearSunset,
+#
+#         carla.WeatherParameters.CloudyNoon,
+#         carla.WeatherParameters.CloudySunset,
+#
+#         carla.WeatherParameters.WetNoon,
+#         carla.WeatherParameters.WetSunset,
+#
+#         carla.WeatherParameters.MidRainyNoon,
+#         carla.WeatherParameters.MidRainSunset,
+#
+#         carla.WeatherParameters.WetCloudyNoon,
+#         carla.WeatherParameters.WetCloudySunset,
+#
+#         carla.WeatherParameters.HardRainNoon,
+#         carla.WeatherParameters.HardRainSunset,
+#
+#         carla.WeatherParameters.SoftRainNoon,
+#         carla.WeatherParameters.SoftRainSunset,
+#
+#         # night modes
+#         carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+#         carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+#         carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+#         carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+#         carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
+#         carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
+#         carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
+# ]
 
 
 def get_entry_point():
@@ -152,7 +152,7 @@ class AutoPilot(MapAgent):
     def run_step(self, input_data, timestamp):
         if not self.initialized:
             self._init()
-            self._world.set_weather(WEATHERS[int(os.environ['WEATHER_INDEX'])])
+        #     self._world.set_weather(WEATHERS[int(os.environ['WEATHER_INDEX'])])
 
         # if self.step % 100 == 0:
         #     index = (self.step // 100) % len(WEATHERS)
