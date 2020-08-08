@@ -203,7 +203,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
                 new_wp = self._map.get_waypoint(new_loc,project_to_road=False, lane_type=carla.LaneType.Any)
 
-                while new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < th:
+                while new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < th:
                     prev_loc = new_loc
                     n += 1
                     new_loc = carla.Location(lane_center_location.x + n*coeff*rv.x, lane_center_location.y + n*coeff*rv.y, 0)
@@ -217,7 +217,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
 
                 with open(self.deviations_path, 'a') as f_out:
-                    if (not new_wp) or (new_wp.lane_type not in [carla.LaneType.Driving, carla.LaneType.Parking]):
+                    if (not new_wp) or (new_wp.lane_type not in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional]):
                         if not new_wp:
                             s = 'None wp'
                         else:
