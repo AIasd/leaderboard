@@ -59,12 +59,18 @@ from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
-from customized_utils import create_transform, specify_args, is_port_in_use, port_to_gpu, make_hierarchical_dir
+from customized_utils import create_transform, specify_args, is_port_in_use, make_hierarchical_dir
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
 from psutil import process_iter
 from signal import SIGTERM, SIGKILL
+
+
+
+port_to_gpu = {2000:0, 2003:1, 2006:0, 2009:1, 2012:0, 2015:1}
+
+
 
 
 sensors_to_icons = {
