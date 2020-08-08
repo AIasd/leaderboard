@@ -294,7 +294,7 @@ class LeaderboardEvaluator(object):
 
                 subprocess.Popen(self.cmd_list)
                 print('-'*500, 'start server at port', args.port)
-                time.sleep(5)
+                time.sleep(10)
 
                 self.client = carla.Client(args.host, int(args.port))
 
