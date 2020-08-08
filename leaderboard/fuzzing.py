@@ -140,7 +140,8 @@ class LeaderboardEvaluator(object):
                 time.sleep(2)
             subprocess.Popen(self.cmd_list)
             print('-'*500, 'start server at port', args.port)
-            time.sleep(5)
+            # 10s is usually enough
+            time.sleep(10)
 
 
         while True:
