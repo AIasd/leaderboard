@@ -139,7 +139,7 @@ class LeaderboardEvaluator(object):
                             print('-'*500, 'kill server at port', args.port)
                 time.sleep(2)
             subprocess.Popen(self.cmd_list)
-            print('-'*500, 'start server at port', args.port)
+            print('-'*20, 'start server at port', args.port)
             # 10s is usually enough
             time.sleep(10)
 
@@ -293,7 +293,7 @@ class LeaderboardEvaluator(object):
                     time.sleep(2)
 
                 subprocess.Popen(self.cmd_list)
-                print('-'*500, 'start server at port', args.port)
+                print('-'*20, 'start server at port', args.port)
                 time.sleep(10)
 
                 self.client = carla.Client(args.host, int(args.port))
@@ -339,9 +339,29 @@ class LeaderboardEvaluator(object):
             self._cleanup()
             return
 
+
+
+
+
+
         # Set center_transform and print out info
         _, route = interpolate_trajectory(self.world, config.trajectory)
         customized_data['center_transform'] = route[int(len(route)//2)][0]
+
+        # Add customized non-default center transforms for actors
+        # customized_data['static_center_transforms'] = {}
+        # customized_data['static_center_transforms'] = {}
+        # customized_data['vehicle_center_transforms'] = {0:(route[0][0].location.x, route[0][0].location.y)}
+
+
+
+
+
+
+
+
+
+
         if 'weather_index' in customized_data:
             print('-'*100)
             print('port :', customized_data['port'])
