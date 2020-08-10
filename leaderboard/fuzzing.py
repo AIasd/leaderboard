@@ -344,17 +344,23 @@ class LeaderboardEvaluator(object):
 
 
 
-        # Set center_transform and print out info
+
         _, route = interpolate_trajectory(self.world, config.trajectory)
         customized_data['center_transform'] = route[int(len(route)//2)][0]
 
-        # Add customized non-default center transforms for actors
-        # customized_data['static_center_transforms'] = {}
-        # customized_data['static_center_transforms'] = {}
-        # customized_data['vehicle_center_transforms'] = {0:(route[0][0].location.x, route[0][0].location.y)}
-
-
-
+        '''
+        customized non-default center transforms for actors
+        ['waypoint_ratio', 'absolute_location']
+        '''
+        for k, v in customized_data['customized_center_transforms'].items():
+            if v[0] == 'waypoint_ratio':
+                ind = np.min([int(len(route)*v[1]), len(route)-1])
+                loc = route[ind][0].location
+                customized_data[k] = create_transform(loc.x, loc.y, 0, 0, 0, 0)
+            elif v[0] == 'absolute_location':
+                customized_data[k] = create_transform(v[1], v[2], 0, 0, 0, 0)
+            else:
+                print('unknown key', k)
 
 
 
