@@ -223,6 +223,8 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                         else:
                             s = new_wp.lane_type
                         # print('offroad_d', d, s, coeff)
+                        # if new_wp:
+                        #     print('lanetype', new_wp.lane_type)
                         if d < self.offroad_d:
                             self.offroad_d = d
                             with open(self.deviations_path, 'a') as f_out:

@@ -16,37 +16,7 @@ from team_code.pid_controller import PIDController
 
 HAS_DISPLAY = int(os.environ.get('HAS_DISPLAY', 0))
 DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
-# WEATHERS = [
-#         carla.WeatherParameters.ClearNoon,
-#         carla.WeatherParameters.ClearSunset,
-#
-#         carla.WeatherParameters.CloudyNoon,
-#         carla.WeatherParameters.CloudySunset,
-#
-#         carla.WeatherParameters.WetNoon,
-#         carla.WeatherParameters.WetSunset,
-#
-#         carla.WeatherParameters.MidRainyNoon,
-#         carla.WeatherParameters.MidRainSunset,
-#
-#         carla.WeatherParameters.WetCloudyNoon,
-#         carla.WeatherParameters.WetCloudySunset,
-#
-#         carla.WeatherParameters.HardRainNoon,
-#         carla.WeatherParameters.HardRainSunset,
-#
-#         carla.WeatherParameters.SoftRainNoon,
-#         carla.WeatherParameters.SoftRainSunset,
-#
-#         # night modes
-#         carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-#         carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-#         carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-#         carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-#         carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
-#         carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
-#         carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-# ]
+
 
 
 def get_entry_point():
@@ -193,16 +163,50 @@ class AutoPilot(MapAgent):
         control.throttle = throttle
         control.brake = float(brake)
 
+        # we only gether info every 2 frames for faster processing speed
         if self.step % 2 == 0:
             self.gather_info()
-        # if self.step % 10 == 0:
-        self.save(far_command, steer, throttle, brake, target_speed, data)
+
+
+        # if this number is very small, we may not have the exact numbers and images for the event happening (e.g. the frame when a collision happen). However, this is usually ok if we only use these for retraining purpose
+        record_every_n_steps = 1
+        if self.step % record_every_n_steps == 0:
+            self.save(record_every_n_steps, far_command, steer, throttle, brake, target_speed, data)
+            self.save_json(record_every_n_steps, far_node, near_command, steer, throttle, brake, target_speed, data)
 
         return control
 
-    def save(self, far_command, steer, throttle, brake, target_speed, tick_data):
-        # frame = self.step // 10
-        frame = self.step
+
+    def save_json(self, record_every_n_steps, far_node, near_command, steer, throttle, brake, target_speed, tick_data):
+        frame = int(self.step // record_every_n_steps)
+
+
+        pos = self._get_position(tick_data)
+        theta = tick_data['compass']
+        speed = tick_data['speed']
+
+        # pos, , far_node, near_command
+        data = {
+                'x': pos[0],
+                'y': pos[1],
+                'theta': theta,
+                'speed': speed,
+                'target_speed': target_speed,
+                'x_command': far_node[0],
+                'y_command': far_node[1],
+                'command': near_command.value,
+                'steer': steer,
+                'throttle': throttle,
+                'brake': brake,
+        }
+
+        (self.save_path / 'measurements' / ('%04d.json' % frame)).write_text(str(data))
+
+    def save(self, record_every_n_steps, far_command, steer, throttle, brake, target_speed, tick_data):
+        frame = int(self.step // record_every_n_steps)
+
+
+
 
         speed = tick_data['speed']
         string = os.environ['SAVE_FOLDER'] + '/' + pathlib.Path(os.environ['ROUTES']).stem
@@ -225,7 +229,8 @@ class AutoPilot(MapAgent):
         Image.fromarray(tick_data['rgb_left']).save(left)
         Image.fromarray(tick_data['rgb_right']).save(right)
         # modification
-        Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        # Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        Image.fromarray(tick_data['topdown']).save(topdown)
 
     def _should_brake(self):
         actors = self._world.get_actors()
