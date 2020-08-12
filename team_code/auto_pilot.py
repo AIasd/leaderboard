@@ -200,7 +200,9 @@ class AutoPilot(MapAgent):
                 'brake': brake,
         }
 
-        (self.save_path / 'measurements' / ('%04d.json' % frame)).write_text(str(data))
+        pth = self.save_path / 'measurements'
+        pth.mkdir(parents=False, exist_ok=True)
+        (pth / ('%04d.json' % frame)).write_text(str(data))
 
     def save(self, record_every_n_steps, far_command, steer, throttle, brake, target_speed, tick_data):
         frame = int(self.step // record_every_n_steps)
