@@ -12,6 +12,7 @@ from leaderboard.utils.route_manipulation import interpolate_trajectory
 
 from customized_utils import get_angle, visualize_route
 import os
+import math
 
 class BaseAgent(autonomous_agent.AutonomousAgent):
     def setup(self, path_to_conf_file):
@@ -31,6 +32,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         self._world = self._vehicle.get_world()
         self._map = CarlaDataProvider.get_map()
 
+        self.min_d = 10000
         self.offroad_d = 10000
         self.wronglane_d = 10000
         self.dev_dist = 0
@@ -139,16 +141,76 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         self.deviations_path = os.path.join(save_path, 'deviations.txt')
 
 
+
+
     def gather_info(self):
 
+        def norm_2d(loc_1, loc_2):
+            return np.sqrt((loc_1.x-loc_2.x)**2+(loc_1.y-loc_2.y)**2)
+
+        def get_bbox(vehicle):
+            current_tra = vehicle.get_transform()
+            current_loc = current_tra.location
+
+            heading_vec = current_tra.get_forward_vector()
+            heading_vec.z = 0
+            heading_vec = heading_vec / math.sqrt(math.pow(heading_vec.x, 2) + math.pow(heading_vec.y, 2))
+            perpendicular_vec = carla.Vector3D(-heading_vec.y, heading_vec.x, 0)
+
+            extent = vehicle.bounding_box.extent
+            x_boundary_vector = heading_vec * extent.x
+            y_boundary_vector = perpendicular_vec * extent.y
+
+            bbox = [
+                current_loc + carla.Location(x_boundary_vector - y_boundary_vector),
+                current_loc + carla.Location(x_boundary_vector + y_boundary_vector),
+                current_loc + carla.Location(-1 * x_boundary_vector - y_boundary_vector),
+                current_loc + carla.Location(-1 * x_boundary_vector + y_boundary_vector)]
+
+            return bbox
 
 
-        th = 120
+
+
+
+        ego_bbox = get_bbox(self._vehicle)
+        ego_front_bbox = ego_bbox[:2]
+
+
+        actors = self._world.get_actors()
+        vehicle_list = actors.filter('*vehicle*')
+        pedestrian_list = actors.filter('*walker*')
+
+        min_d = 10000
+        for i, vehicle in enumerate(vehicle_list):
+            if vehicle.id == self._vehicle.id:
+                continue
+            other_bbox = get_bbox(vehicle)
+            for other_b in other_bbox:
+                for ego_b in ego_bbox:
+                    d = norm_2d(other_b, ego_b)
+                    # print('vehicle', i, 'd', d)
+                    min_d = np.min([min_d, d])
+
+        for i, pedestrian in enumerate(pedestrian_list):
+            pedestrian_location = pedestrian.get_transform().location
+            for ego_b in ego_front_bbox:
+                d = norm_2d(pedestrian_location, ego_b)
+                # print('pedestrian', i, 'd', d)
+                min_d = np.min([min_d, d])
+
+        if min_d < self.min_d:
+            self.min_d = min_d
+            with open(self.deviations_path, 'a') as f_out:
+                f_out.write('min_d,'+str(self.min_d)+'\n')
+
+
+
+        angle_th = 120
 
         current_location = CarlaDataProvider.get_location(self._vehicle)
         current_transform = CarlaDataProvider.get_transform(self._vehicle)
         current_waypoint = self._map.get_waypoint(current_location, project_to_road=False, lane_type=carla.LaneType.Any)
-
 
         lane_center_waypoint = self._map.get_waypoint(current_location, lane_type=carla.LaneType.Any)
         lane_center_transform = lane_center_waypoint.transform
@@ -203,7 +265,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
                 new_wp = self._map.get_waypoint(new_loc,project_to_road=False, lane_type=carla.LaneType.Any)
 
-                while new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < th:
+                while new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < angle_th:
                     prev_loc = new_loc
                     n += 1
                     new_loc = carla.Location(lane_center_location.x + n*coeff*rv.x, lane_center_location.y + n*coeff*rv.y, 0)
