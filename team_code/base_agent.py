@@ -106,9 +106,9 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                     },
                 {
                     'type': 'sensor.camera.rgb',
-                    'x': -8, 'y': 0.0, 'z': 5,
+                    'x': -6, 'y': 0.0, 'z': 4,
                     'roll': 0.0, 'pitch': -30.0, 'yaw': 0.0,
-                    'width': 256, 'height': 144, 'fov': 90,
+                    'width': 256*2, 'height': 144*2, 'fov': 90,
                     'id': 'rgb_with_car'
                     }
                 ]
