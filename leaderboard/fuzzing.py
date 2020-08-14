@@ -329,9 +329,10 @@ class LeaderboardEvaluator(object):
         """
         Load and run the scenario given by config
         """
-        # addition: hack
+        # hack:
         config.weather = WEATHERS[args.weather_index]
         config.friction = customized_data['friction']
+        config.cur_server_port = customized_data['port']
 
 
         if not self._load_and_wait_for_world(args, config.town, config.ego_vehicles):
@@ -399,6 +400,7 @@ class LeaderboardEvaluator(object):
 
         try:
             self._prepare_ego_vehicles(config.ego_vehicles, False)
+            # print('\n'*10, 'RouteScenario config.cur_server_port', config.cur_server_port, '\n'*10)
             scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug, customized_data=customized_data)
 
         except Exception as exception:

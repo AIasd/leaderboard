@@ -201,7 +201,7 @@ class RouteScenario(BasicScenario):
                                                              scenarios_per_tick=5,
                                                              timeout=self.timeout,
                                                              debug_mode=debug_mode)
-
+        # print('\n'*10, 'RouteScenario config.cur_server_port', config.cur_server_port, '\n'*10)
         super(RouteScenario, self).__init__(name=config.name,
                                             ego_vehicles=[ego_vehicle],
                                             config=config,
@@ -413,6 +413,7 @@ class RouteScenario(BasicScenario):
             scenario_configuration.ego_vehicles = [ActorConfigurationData('vehicle.lincoln.mkz2017', ego_vehicle.get_transform(), 'hero')]
             route_var_name = "ScenarioRouteNumber{}".format(scenario_number)
             scenario_configuration.route_var_name = route_var_name
+            scenario_configuration.cur_server_port = self.config.cur_server_port
             try:
                 if definition['name'] in ['Scenario4', 'Scenario12']:
                     scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout, customized_data=self.customized_data)

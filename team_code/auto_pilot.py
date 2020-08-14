@@ -169,7 +169,7 @@ class AutoPilot(MapAgent):
 
 
         # if this number is very small, we may not have the exact numbers and images for the event happening (e.g. the frame when a collision happen). However, this is usually ok if we only use these for retraining purpose
-        record_every_n_steps = 1
+        record_every_n_steps = 10
         if self.step % record_every_n_steps == 0:
             self.save(record_every_n_steps, far_command, steer, throttle, brake, target_speed, data)
             self.save_json(record_every_n_steps, far_node, near_command, steer, throttle, brake, target_speed, data)
