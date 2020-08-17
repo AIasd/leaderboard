@@ -61,12 +61,28 @@
                                 "yaw": "270",
                                 "z": "0.0"
                             }
+                        },
+                        {
+                            "route": 0,
+                            "center": {
+                                "pitch": "0.0",
+                                "x": "-120",
+                                "y": "25",
+                                "yaw": "0.0",
+                                "z": "0.0"
+                            },
+                            "transform": {
+                                "pitch": "0.0",
+                                "x": "-120",
+                                "y": "25",
+                                "yaw": "0.0",
+                                "z": "0.0"
+                            }
                         }
                     ],
                     "scenario_type": "Scenario12"
                 }
             ],
-
             "Town03": [
                 {
                     "available_event_configurations": [
@@ -91,7 +107,6 @@
                     "scenario_type": "Scenario12"
                 }
             ],
-
             "Town01": [
                 {
                     "available_event_configurations": [
@@ -133,7 +148,6 @@
                     "scenario_type": "Scenario12"
                 }
             ]
-
         }
     ]
 }

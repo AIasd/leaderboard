@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<routes>
-<route id="18" town="Town01">
-    <waypoint pitch="0" roll="0" x="92.55" y="173.42" yaw="270.0" z="1.0" />
-    <waypoint pitch="0" roll="0" x="92.55" y="163.42" yaw="270.0" z="1.0" />
-    <waypoint pitch="0" roll="0" x="126.56" y="133.21" yaw="0" z="1.0" />
-    <waypoint pitch="0" roll="0" x="136.56" y="133.21" yaw="0" z="1.0" />
-</route>
-</routes>
