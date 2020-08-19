@@ -16,7 +16,8 @@ from agents.navigation.local_planner import RoadOption
 from srunner.scenarioconfigs.route_scenario_configuration import RouteScenarioConfiguration
 
 # TODO  check this threshold, it could be a bit larger but not so large that we cluster scenarios.
-TRIGGER_THRESHOLD = 2.0  # Threshold to say if a trigger position is new or repeated, works for matching positions
+# hack: increase this threshold
+TRIGGER_THRESHOLD = 10.0  # Threshold to say if a trigger position is new or repeated, works for matching positions
 # hack: 10->360 such that it is ignored
 TRIGGER_ANGLE_THRESHOLD = 360  # Threshold to say if two angles can be considering matching when matching transforms.
 
@@ -171,8 +172,9 @@ class RouteParser(object):
 
             dyaw = (float(waypoint1['yaw']) - wtransform.rotation.yaw) % 360
 
-            return dpos < TRIGGER_THRESHOLD \
-                and (dyaw < TRIGGER_ANGLE_THRESHOLD or dyaw > (360 - TRIGGER_ANGLE_THRESHOLD))
+            # hack: ignore trigger_angle
+            return dpos < TRIGGER_THRESHOLD
+                # and (dyaw < TRIGGER_ANGLE_THRESHOLD or dyaw > (360 - TRIGGER_ANGLE_THRESHOLD))
 
         match_position = 0
         # TODO this function can be optimized to run on Log(N) time
