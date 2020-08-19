@@ -17,7 +17,7 @@ from srunner.scenarioconfigs.route_scenario_configuration import RouteScenarioCo
 
 # TODO  check this threshold, it could be a bit larger but not so large that we cluster scenarios.
 # hack: increase this threshold
-TRIGGER_THRESHOLD = 10.0  # Threshold to say if a trigger position is new or repeated, works for matching positions
+TRIGGER_THRESHOLD = 1000.0  # Threshold to say if a trigger position is new or repeated, works for matching positions
 # hack: 10->360 such that it is ignored
 TRIGGER_ANGLE_THRESHOLD = 360  # Threshold to say if two angles can be considering matching when matching transforms.
 
