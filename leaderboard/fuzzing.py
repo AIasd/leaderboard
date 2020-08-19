@@ -138,12 +138,12 @@ class LeaderboardEvaluator(object):
 
         if launch_server:
             while is_port_in_use(args.port):
-                for proc in process_iter():
-                    for conns in proc.connections(kind='inet'):
-                        if conns.laddr.port == args.port:
-                            proc.send_signal(SIGKILL)
-                            print('-'*500, 'kill server at port', args.port)
-                time.sleep(2)
+                try:
+                    subprocess.run('kill $(lsof -t -i :'+str(args.port)+')', shell=True)
+                    print('-'*20, 'kill server at port', port)
+                    time.sleep(2)
+                except:
+                    continue
             subprocess.Popen(self.cmd_list)
             print('-'*20, 'start server at port', args.port)
             # 10s is usually enough
