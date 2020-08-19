@@ -119,9 +119,8 @@ class LeaderboardEvaluator(object):
         # This is currently set to be consistent with os.environ['HAS_DISPLAY'].
         # however, it is possible to control them separately.
         if os.environ['HAS_DISPLAY'] == '0':
-            display_str = ''
-        else:
-            display_str = 'DISPLAY='
+            os.environ["DISPLAY"] = ''
+
 
 
         gpu = port_to_gpu[args.port]
@@ -132,8 +131,8 @@ class LeaderboardEvaluator(object):
         #     username = os.environ['USER']
 
         # print('\n'*10, 'username', username, '\n'*10)
-        # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
-        self.cmd_list = shlex.split(display_str+' sh ../carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+        self.cmd_list = shlex.split('sh ../carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
 
 
 
