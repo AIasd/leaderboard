@@ -456,7 +456,7 @@ def main():
 
     # addition
     parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
-    parser.add_argument("--save_folder", type=str, default='/home/zhongzzy9/Documents/self-driving-car/2020_CARLA_challenge/collected_data', help="Path to save simulation data")
+    parser.add_argument("--save_folder", type=str, default='collected_data', help="Path to save simulation data")
 
 
     arguments = parser.parse_args()
