@@ -126,13 +126,14 @@ class LeaderboardEvaluator(object):
 
         gpu = port_to_gpu[args.port]
 
-        if os.environ.get('SUDO_USER') is not None:
-            username = os.environ['SUDO_USER']
-        else:
-            username = os.environ['USER']
+        # if os.environ.get('SUDO_USER') is not None:
+        #     username = os.environ['SUDO_USER']
+        # else:
+        #     username = os.environ['USER']
 
-        print('\n'*10, 'username', username, '\n'*10)
-        self.cmd_list = shlex.split('sudo -E -u '+username+' CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES='+str(gpu)+' '+display_str+' sh ../carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
+        # print('\n'*10, 'username', username, '\n'*10)
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+        self.cmd_list = shlex.split(display_str+' sh ../carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
 
 
 
