@@ -132,7 +132,7 @@ class LeaderboardEvaluator(object):
         #     username = os.environ['USER']
 
         # print('\n'*10, 'username', username, '\n'*10)
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+        # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
         self.cmd_list = shlex.split(display_str+' sh ../carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
 
 
