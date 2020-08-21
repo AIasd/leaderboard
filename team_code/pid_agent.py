@@ -161,6 +161,10 @@ class PIDAgent(MapAgent):
             self._init()
 
         data = self.tick(input_data)
+
+        rgb_with_car = cv2.cvtColor(input_data['rgb_with_car'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+        data['rgb_with_car'] = rgb_with_car
+
         topdown = data['topdown']
         rgb = np.hstack((data['rgb_left'], data['rgb'], data['rgb_right']))
 
@@ -219,6 +223,7 @@ class PIDAgent(MapAgent):
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
         topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
+        rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
 
         data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
         with (self.save_path / 'measurements.csv').open("a") as f_out:
@@ -229,6 +234,7 @@ class PIDAgent(MapAgent):
         Image.fromarray(tick_data['rgb_right']).save(right)
         # modification
         Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        Image.fromarray(tick_data['rgb_with_car']).save(rgb_with_car)
 
 
     def _draw_line(self, p, v, z, color=(255, 0, 0)):

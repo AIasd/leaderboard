@@ -100,8 +100,8 @@ class ImageAgent(BaseAgent):
         center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
         left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
         right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
-        rgb_with_car_str = string + '/' + 'rgb_with_car' + '/' + ('%04d.png' % frame)
+        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
+        # rgb_with_car_str = string + '/' + 'rgb_with_car' + '/' + ('%04d.png' % frame)
 
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
