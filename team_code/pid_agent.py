@@ -202,8 +202,10 @@ class PIDAgent(MapAgent):
 
         if self.step % 2 == 0:
             self.gather_info()
-        # if self.step % 10 == 0:
-        self.save('', steer, throttle, brake, self.target_speed, data)
+
+        record_every_n_steps = 3
+        if self.step % record_every_n_steps == 0:
+            self.save('', steer, throttle, brake, self.target_speed, data)
 
         return control
 

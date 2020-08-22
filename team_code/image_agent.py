@@ -268,5 +268,8 @@ class ImageAgent(BaseAgent):
                 f_out.write(title_row+'\n')
         if self.step % 2 == 0:
             self.gather_info()
-        self.save(steer, throttle, brake, tick_data)
+
+        record_every_n_steps = 3
+        if self.step % record_every_n_steps == 0:
+            self.save(steer, throttle, brake, tick_data)
         return control
