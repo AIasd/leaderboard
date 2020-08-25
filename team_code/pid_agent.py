@@ -81,7 +81,7 @@ class PIDAgent(MapAgent):
         self._state = AgentState.NAVIGATING
 
         # TBD: subject to change
-        self.target_speed = 20
+        self.target_speed = 7
         args_lateral_dict = {
             'K_P': 1,
             'K_D': 0.4,
