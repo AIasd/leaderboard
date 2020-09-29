@@ -1,4 +1,4 @@
-from srunner.scenariomanager.carla_data_provider import CarlaActorPool
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
 from team_code.base_agent import BaseAgent
 from team_code.planner import RoutePlanner
@@ -10,20 +10,10 @@ def get_entry_point():
 
 
 class MapAgent(BaseAgent):
-    def sensors(self):
-        result = super().sensors()
-        result.append({
-            'type': 'sensor.camera.semantic_segmentation',
-            'x': 0.0, 'y': 0.0, 'z': 100.0,
-            'roll': 0.0, 'pitch': -90.0, 'yaw': 0.0,
-            'width': 512, 'height': 512, 'fov': 5 * 10.0,
-            'id': 'map'
-            })
+    # remove the sensors since we made changes to base_agent.py
 
-        return result
-
-    def set_global_plan(self, global_plan_gps, global_plan_world_coord):
-        super().set_global_plan(global_plan_gps, global_plan_world_coord)
+    def set_global_plan(self, global_plan_gps, global_plan_world_coord, sample_factor=1):
+        super().set_global_plan(global_plan_gps, global_plan_world_coord, sample_factor)
 
         self._plan_HACK = global_plan_world_coord
         self._plan_gps_HACK = global_plan_gps
@@ -31,7 +21,7 @@ class MapAgent(BaseAgent):
     def _init(self):
         super()._init()
 
-        self._vehicle = CarlaActorPool.get_hero_actor()
+        self._vehicle = CarlaDataProvider.get_hero_actor()
         self._world = self._vehicle.get_world()
 
         self._waypoint_planner = RoutePlanner(4.0, 50)

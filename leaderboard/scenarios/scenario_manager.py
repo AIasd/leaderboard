@@ -6,8 +6,8 @@
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
 """
-This module provides the Scenario and ScenarioManager implementations.
-These must not be modified and are for reference only!
+This module provides the ScenarioManager implementation.
+It must not be modified and is for reference only!
 """
 
 from __future__ import print_function
@@ -19,9 +19,11 @@ import threading
 import py_trees
 import carla
 
-from srunner.scenariomanager.carla_data_provider import CarlaDataProvider, CarlaActorPool
-from srunner.scenariomanager.timer import GameTime, TimeOut
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
+from srunner.scenariomanager.result_writer import ResultOutputProvider
+from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
+from srunner.scenariomanager.scenarioatomics.atomic_behaviors import UpdateAllActorControls
 
 from leaderboard.autoagents.agent_wrapper import AgentWrapper
 
@@ -29,88 +31,6 @@ from leaderboard.autoagents.agent_wrapper import AgentWrapper
 import os
 import pathlib
 
-class Scenario(object):
-
-    """
-    Basic scenario class. This class holds the behavior_tree describing the
-    scenario and the test criteria.
-
-    The user must not modify this class.
-
-    Important parameters:
-    - behavior: User defined scenario with py_tree
-    - criteria_list: List of user defined test criteria with py_tree
-    - timeout (default = 60s): Timeout of the scenario in seconds
-    - terminate_on_failure: Terminate scenario on first failure
-    """
-
-    def __init__(self, behavior, criteria, name, timeout=60, terminate_on_failure=False):
-        self.behavior = behavior
-        self.test_criteria = criteria
-        self.timeout = timeout
-        self.name = name
-
-        if self.test_criteria is not None and not isinstance(self.test_criteria, py_trees.composites.Parallel):
-            # list of nodes
-            for criterion in self.test_criteria:
-                criterion.terminate_on_failure = terminate_on_failure
-
-            # Create py_tree for test criteria
-            self.criteria_tree = py_trees.composites.Parallel(name="Test Criteria")
-            self.criteria_tree.add_children(self.test_criteria)
-            self.criteria_tree.setup(timeout=1)
-        else:
-            self.criteria_tree = criteria
-
-        # Create node for timeout
-        self.timeout_node = TimeOut(self.timeout, name="TimeOut")
-
-        # Create overall py_tree
-        self.scenario_tree = py_trees.composites.Parallel(name, policy=py_trees.common.ParallelPolicy.SUCCESS_ON_ONE)
-        if behavior is not None:
-            self.scenario_tree.add_child(self.behavior)
-        self.scenario_tree.add_child(self.timeout_node)
-        if criteria is not None:
-            self.scenario_tree.add_child(self.criteria_tree)
-        self.scenario_tree.setup(timeout=1)
-
-    def _extract_nodes_from_tree(self, tree):  # pylint: disable=no-self-use
-        """
-        Returns the list of all nodes from the given tree
-        """
-        node_list = [tree]
-        more_nodes_exist = True
-        while more_nodes_exist:
-            more_nodes_exist = False
-            for node in node_list:
-                if node.children:
-                    node_list.remove(node)
-                    more_nodes_exist = True
-                    for child in node.children:
-                        node_list.append(child)
-
-        if len(node_list) == 1 and isinstance(node_list[0], py_trees.composites.Parallel):
-            return []
-
-        return node_list
-
-    def get_criteria(self):
-        """
-        Return the list of test criteria (all leave nodes)
-        """
-        criteria_list = self._extract_nodes_from_tree(self.criteria_tree)
-        return criteria_list
-
-    def terminate(self):
-        """
-        This function sets the status of all leaves in the scenario tree to INVALID
-        """
-        # Get list of all nodes in the tree
-        node_list = self._extract_nodes_from_tree(self.scenario_tree)
-
-        # Set status to INVALID
-        for node in node_list:
-            node.terminate(py_trees.common.Status.INVALID)
 
 
 class ScenarioManager(object):
@@ -124,16 +44,16 @@ class ScenarioManager(object):
     To use the ScenarioManager:
     1. Create an object via manager = ScenarioManager()
     2. Load a scenario via manager.load_scenario()
-    3. Trigger the execution of the scenario manager.execute()
+    3. Trigger the execution of the scenario manager.run_scenario()
        This function is designed to explicitly control start and end of
        the scenario execution
-    4. Trigger a result evaluation with manager.analyze()
-    5. Cleanup with manager.stop_scenario()
+    4. Trigger a result evaluation with manager.analyze_scenario()
+    5. If needed, cleanup with manager.stop_scenario()
     """
 
-    def __init__(self, debug_mode=False, challenge_mode=False, track=None, timeout=10.0):
+    def __init__(self, debug_mode=False, sync_mode=False, challenge_mode=False, track=None, timeout=10.0, episode_max_time=10000):
         """
-        Init requires scenario as input
+        Setups up the parameters, which will be filled at load_scenario()
         """
         self.scenario = None
         self.scenario_tree = None
@@ -145,6 +65,7 @@ class ScenarioManager(object):
         self._challenge_mode = challenge_mode
         self._track = track
         self._agent = None
+        self._sync_mode = sync_mode
         self._running = False
         self._timestamp_last_run = 0.0
         self._timeout = timeout
@@ -155,9 +76,14 @@ class ScenarioManager(object):
         self.start_system_time = None
         self.end_system_time = None
 
+        # modification: disable when running multi-process via dask
         # Register the scenario tick as callback for the CARLA world
         # Use the callback_id inside the signal handler to allow external interrupts
-        signal.signal(signal.SIGINT, self._signal_handler)
+        # signal.signal(signal.SIGINT, self._signal_handler)
+
+        self.episode_max_time = episode_max_time
+
+
 
     def _signal_handler(self, signum, frame):
         """
@@ -185,14 +111,17 @@ class ScenarioManager(object):
         """
         self._reset()
         self._agent = AgentWrapper(agent, self._challenge_mode) if agent else None
+        if self._agent is not None:
+            self._sync_mode = True
         self.scenario_class = scenario
         self.scenario = scenario.scenario
         self.scenario_tree = self.scenario.scenario_tree
         self.ego_vehicles = scenario.ego_vehicles
         self.other_actors = scenario.other_actors
 
-        CarlaDataProvider.register_actors(self.ego_vehicles)
-        CarlaDataProvider.register_actors(self.other_actors)
+        # modification registration now moves to carla_data_provider
+        # CarlaDataProvider.register_actors(self.ego_vehicles)
+        # CarlaDataProvider.register_actors(self.other_actors)
         # To print the scenario tree uncomment the next line
         # py_trees.display.render_dot_tree(self.scenario_tree)
 
@@ -210,14 +139,18 @@ class ScenarioManager(object):
         self._watchdog.start()
         self._running = True
 
-        parent_folder = 'collected_data'
-        if os.environ['TEAM_AGENT'] == 'leaderboard/team_code/auto_pilot.py':
-            parent_folder = 'collected_data_autopilot'
+        parent_folder = os.environ['SAVE_FOLDER']
 
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = pathlib.Path(os.environ['ROUTES']).stem
         save_path = pathlib.Path(parent_folder) / string
 
         step = 0
+
+        # hack: control the time of running
+        # debug:
+        s = time.time()
+
+
         with (save_path / 'measurements_loc.csv' ).open("a") as f_out:
             while self._running:
                 timestamp = None
@@ -235,6 +168,13 @@ class ScenarioManager(object):
                 loc = self.ego_vehicles[0].get_location()
                 f_out.write(str(loc.x)+','+str(loc.y)+'\n')
                 step += 1
+
+
+                # hack: control the time of running
+                # debug:
+                if time.time()-s > self.episode_max_time:
+                    self._running = False
+                    break
 
 
         self._watchdog.stop()
@@ -283,10 +223,12 @@ class ScenarioManager(object):
 
         # addition: new event
         on_side_walk = blackv.get("OnSideWalk")
+        off_road = blackv.get("OffRoad")
         wrong_lane = blackv.get("WrongLane")
 
         # If something failed, stop
         if [x for x in (collisions, outside_route_lanes, stop_signs, red_light, in_route) if x is None]:
+            print("Nothing to analyze, this scenario has no criteria")
             return
 
         if blackv.get("RouteCompletion") >= 99:
@@ -302,7 +244,8 @@ class ScenarioManager(object):
         stop_symbol = get_symbol(stop_signs, 0, False)
 
         # addition: new event
-        on_side_walk_symbol = get_symbol(on_side_walk , 0, False)
+        on_side_walk_symbol = get_symbol(on_side_walk, 0, False)
+        off_road_symbol = get_symbol(off_road, 0, False)
         wrong_lane_symbol = get_symbol(wrong_lane, 0, False)
 
         if self.scenario_tree.status == py_trees.common.Status.FAILURE:
@@ -330,22 +273,13 @@ class ScenarioManager(object):
 
             # addition: new event
             print("> - On side walk [{}]:         {} times".format(on_side_walk_symbol, on_side_walk))
+            print("> - Off road [{}]:         {} times".format(off_road_symbol, off_road))
             print("> - Wrong lane [{}]:           {} times\n".format(wrong_lane_symbol, wrong_lane))
-
-            with open('misbehaviors_log.txt', 'a') as f_out:
-                f_out.write('-'*25+pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']+'-'*25+'\n')
-                f_out.write('Route Completed: '+str(route_completed)+'%\n')
 
     def _tick_scenario(self, timestamp):
         """
-        Run next tick of scenario
-        This function is a callback for world.on_tick()
-
-        Important:
-        - It has to be ensured that the scenario has not yet completed/failed
-          and that the time moved forward.
-        - A thread lock should be used to avoid that the scenario tick is performed
-          multiple times in parallel.
+        Run next tick of scenario and the agent.
+        If running synchornously, it also handles the ticking of the world.
         """
 
         if self._timestamp_last_run < timestamp.elapsed_seconds:
@@ -375,13 +309,12 @@ class ScenarioManager(object):
 
                 spectator = CarlaDataProvider.get_world().get_spectator()
                 ego_trans = self.ego_vehicles[0].get_transform()
-                spectator.set_transform(carla.Transform(ego_trans.location + carla.Location(z=50),
-                                                            carla.Rotation(pitch=-90)))
+                spectator.set_transform(carla.Transform(ego_trans.location + carla.Location(z=50), carla.Rotation(pitch=-90)))
 
             if self._agent is not None:
                 self.ego_vehicles[0].apply_control(ego_action)
 
-        if self._agent and self._running and self._watchdog.get_status():
+        if self._sync_mode and self._running and self._watchdog.get_status():
             CarlaDataProvider.get_world().tick()
 
     def get_running_status(self):
@@ -404,4 +337,3 @@ class ScenarioManager(object):
             self._agent = None
 
         CarlaDataProvider.cleanup()
-        CarlaActorPool.cleanup()

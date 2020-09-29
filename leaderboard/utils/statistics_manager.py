@@ -45,7 +45,8 @@ class RouteRecord():
             'on_sidewalk': [],
             'outside_lane_infraction': [],
             'wrong_lane': [],
-            'collisions_invisible': []
+            'collisions_invisible': [],
+            'off_road': []
         }
 
         self.scores = {
@@ -66,7 +67,7 @@ def to_route_record(record_dict):
 
 
 def compute_route_length(config):
-    trajectory = config.route_description['trajectory']
+    trajectory = config.trajectory
 
     route_length = 0.0
     previous_location = None
@@ -194,6 +195,9 @@ class StatisticsManager(object):
                         elif event.get_type() == TrafficEventType.OUTSIDE_LANE_INFRACTION:
                             print('outside_lane_infraction')
                             route_record.infractions['outside_lane_infraction'].append(event.get_message())
+                        elif event.get_type() == TrafficEventType.OFF_ROAD_INFRACTION:
+                            print('off_road')
+                            route_record.infractions['off_road'].append(event.get_message())
                         elif event.get_type() == TrafficEventType.WRONG_WAY_INFRACTION:
                             print('wrong_way')
                             route_record.infractions['wrong_lane'].append(event.get_message())
@@ -226,7 +230,7 @@ class StatisticsManager(object):
                 global_record.scores['score_composed'] += route_record.scores['score_composed']
 
                 for key in global_record.infractions.keys():
-                    route_length_kms = route_record.scores['score_route'] * route_record.meta['route_length'] / 1000.0
+                    route_length_kms = max(route_record.scores['score_route'] * route_record.meta['route_length'] / 1000.0, 0.001)
                     if isinstance(global_record.infractions[key], list):
                         global_record.infractions[key] = len(route_record.infractions[key]) / route_length_kms
                         if route_length_kms == 0:
@@ -291,6 +295,7 @@ class StatisticsManager(object):
                           '{:.3f}'.format(stats_dict['infractions']['vehicle_blocked']),
                           # addition: new event
                           '{:.3f}'.format(stats_dict['infractions']['on_sidewalk']),
+                          '{:.3f}'.format(stats_dict['infractions']['off_road']),
                           '{:.3f}'.format(stats_dict['infractions']['outside_lane_infraction']),
                           '{:.3f}'.format(stats_dict['infractions']['wrong_lane']),
                           '{:.3f}'.format(stats_dict['infractions']['collisions_invisible'])
@@ -307,7 +312,11 @@ class StatisticsManager(object):
                           'Off-road infractions',
                           'Route deviations',
                           'Route timeouts',
-                          'Agent blocked'
+                          'Agent blocked',
+                          'On Sidewalk',
+                          'Off Road',
+                          'Outside Lane',
+                          'Collisions Invisible'
                           ]
 
         data['sensors'] = sensors

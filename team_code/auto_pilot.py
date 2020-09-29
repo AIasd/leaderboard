@@ -14,39 +14,9 @@ from team_code.map_agent import MapAgent
 from team_code.pid_controller import PIDController
 
 
-HAS_DISPLAY = True
-DEBUG = False
-WEATHERS = [
-        carla.WeatherParameters.ClearNoon,
-        carla.WeatherParameters.ClearSunset,
+HAS_DISPLAY = int(os.environ.get('HAS_DISPLAY', 0))
+DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 
-        carla.WeatherParameters.CloudyNoon,
-        carla.WeatherParameters.CloudySunset,
-
-        carla.WeatherParameters.WetNoon,
-        carla.WeatherParameters.WetSunset,
-
-        carla.WeatherParameters.MidRainyNoon,
-        carla.WeatherParameters.MidRainSunset,
-
-        carla.WeatherParameters.WetCloudyNoon,
-        carla.WeatherParameters.WetCloudySunset,
-
-        carla.WeatherParameters.HardRainNoon,
-        carla.WeatherParameters.HardRainSunset,
-
-        carla.WeatherParameters.SoftRainNoon,
-        carla.WeatherParameters.SoftRainSunset,
-
-        # night modes
-        carla.WeatherParameters(15.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(80.0, 0.0, 0.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(20.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
-        carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
-]
 
 
 def get_entry_point():
@@ -84,17 +54,6 @@ def get_collision(p1, v1, p2, v2):
 
 
 class AutoPilot(MapAgent):
-    def setup(self, path_to_conf_file):
-        super().setup(path_to_conf_file)
-
-        self.save_path = None
-
-        if path_to_conf_file:
-            string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-            self.save_path = pathlib.Path(path_to_conf_file) / string
-
-
-
     def _init(self):
         super()._init()
 
@@ -152,13 +111,16 @@ class AutoPilot(MapAgent):
     def run_step(self, input_data, timestamp):
         if not self.initialized:
             self._init()
-            self._world.set_weather(WEATHERS[int(os.environ['WEATHER_INDEX'])])
+        #     self._world.set_weather(WEATHERS[int(os.environ['WEATHER_INDEX'])])
 
         # if self.step % 100 == 0:
         #     index = (self.step // 100) % len(WEATHERS)
         #     self._world.set_weather(WEATHERS[index])
 
         data = self.tick(input_data)
+        rgb_with_car = cv2.cvtColor(input_data['rgb_with_car'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+        data['rgb_with_car'] = rgb_with_car
+
         topdown = data['topdown']
         rgb = np.hstack((data['rgb_left'], data['rgb'], data['rgb_right']))
 
@@ -193,29 +155,64 @@ class AutoPilot(MapAgent):
         control.throttle = throttle
         control.brake = float(brake)
 
-        # if self.step % 10 == 0:
-        self.save(far_command, steer, throttle, brake, target_speed, data)
+        # we only gether info every 2 frames for faster processing speed
+        if self.step % 2 == 0:
+            self.gather_info()
+
+
+        # if this number is very small, we may not have the exact numbers and images for the event happening (e.g. the frame when a collision happen). However, this is usually ok if we only use these for retraining purpose
+        record_every_n_steps = self.record_every_n_step
+        if self.step % record_every_n_steps == 0:
+            self.save(record_every_n_steps, far_command, steer, throttle, brake, target_speed, data)
+            self.save_json(record_every_n_steps, far_node, near_command, steer, throttle, brake, target_speed, data)
 
         return control
 
-    def save(self, far_command, steer, throttle, brake, target_speed, tick_data):
-        # frame = self.step // 10
-        frame = self.step
+
+    def save_json(self, record_every_n_steps, far_node, near_command, steer, throttle, brake, target_speed, tick_data):
+        frame = int(self.step // record_every_n_steps)
+
+
+        pos = self._get_position(tick_data)
+        theta = tick_data['compass']
+        speed = tick_data['speed']
+
+        # pos, , far_node, near_command
+        data = {
+                'x': pos[0],
+                'y': pos[1],
+                'theta': theta,
+                'speed': speed,
+                'target_speed': target_speed,
+                'x_command': far_node[0],
+                'y_command': far_node[1],
+                'command': near_command.value,
+                'steer': steer,
+                'throttle': throttle,
+                'brake': brake,
+        }
+
+        pth = self.save_path / 'measurements'
+        pth.mkdir(parents=False, exist_ok=True)
+        (pth / ('%04d.json' % frame)).write_text(str(data))
+
+    def save(self, record_every_n_steps, far_command, steer, throttle, brake, target_speed, tick_data):
+        frame = int(self.step // record_every_n_steps)
+
+
 
         speed = tick_data['speed']
-        string = string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-
-        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
-        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
-        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
-        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
+
+
+        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
+        rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
+
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv').open("a") as f_out:
             f_out.write(data_row+'\n')
 
@@ -223,7 +220,9 @@ class AutoPilot(MapAgent):
         Image.fromarray(tick_data['rgb_left']).save(left)
         Image.fromarray(tick_data['rgb_right']).save(right)
         # modification
-        Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        # Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
+        Image.fromarray(tick_data['topdown']).save(topdown)
+        Image.fromarray(tick_data['rgb_with_car']).save(rgb_with_car)
 
     def _should_brake(self):
         actors = self._world.get_actors()

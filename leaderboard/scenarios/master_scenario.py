@@ -13,7 +13,7 @@ from srunner.scenarioconfigs.route_scenario_configuration import RouteConfigurat
 from srunner.scenariomanager.scenarioatomics.atomic_behaviors import Idle
 # addition: : new event
 # OutsideRouteLanesTest consists of OnSidewalkTest and WrongLaneTest
-from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, RunningRedLightTest, RunningStopTest, OutsideRouteLanesTest, OnSidewalkTest, WrongLaneTest)
+from srunner.scenariomanager.scenarioatomics.atomic_criteria import (CollisionTest, InRouteTest, RouteCompletionTest, RunningRedLightTest, RunningStopTest, OutsideRouteLanesTest, OnSidewalkTest, OffRoadTest, WrongLaneTest)
 from srunner.scenarios.basic_scenario import BasicScenario
 
 from leaderboard.scenarios.scenarioatomics.atomic_criteria import ActorSpeedAboveThresholdTest
@@ -40,15 +40,10 @@ class MasterScenario(BasicScenario):
         Setup all relevant parameters and create scenario
         """
         self.config = config
-        self.target = None
         self.route = None
         # Timeout of scenario in seconds
         self.timeout = timeout
 
-        if hasattr(self.config, 'target'):
-            self.target = self.config.target
-        else:
-            raise ValueError("Master scenario must have a target")
         if hasattr(self.config, 'route'):
             self.route = self.config.route
         else:
@@ -81,7 +76,7 @@ class MasterScenario(BasicScenario):
         else:
             route = self.route
 
-        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=False)
+        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         route_criterion = InRouteTest(self.ego_vehicles[0],
                                       route=route,
@@ -93,8 +88,9 @@ class MasterScenario(BasicScenario):
         outsidelane_criterion = OutsideRouteLanesTest(self.ego_vehicles[0],route=route)
 
         # addition: new event
-        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0])
-        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0])
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)
+        offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=True)
+        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         red_light_criterion = RunningRedLightTest(self.ego_vehicles[0])
 
@@ -118,6 +114,7 @@ class MasterScenario(BasicScenario):
 
         # addition: new event
         parallel_criteria.add_child(onsidewalk_criterion)
+        parallel_criteria.add_child(offroad_criterion)
         parallel_criteria.add_child(wronglane_criterion)
 
 

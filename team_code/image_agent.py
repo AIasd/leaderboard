@@ -21,7 +21,7 @@ DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
 # addition
 from carla_project.src.carla_env import draw_traffic_lights, get_nearby_lights
 from carla_project.src.common import CONVERTER, COLOR
-from srunner.scenariomanager.carla_data_provider import CarlaActorPool
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
 
 def get_entry_point():
@@ -65,26 +65,6 @@ def debug_display(tick_data, target_cam, out, steer, throttle, brake, desired_sp
 
 
 class ImageAgent(BaseAgent):
-    # addition
-    def sensors(self):
-        result = super().sensors()
-        result.append({
-            'type': 'sensor.camera.semantic_segmentation',
-            'x': 0.0, 'y': 0.0, 'z': 100.0,
-            'roll': 0.0, 'pitch': -90.0, 'yaw': 0.0,
-            'width': 512, 'height': 512, 'fov': 5 * 10.0,
-            'id': 'map'
-            })
-        result.append({
-            'type': 'sensor.camera.rgb',
-            'x': -7, 'y': 0.0, 'z': 7,
-            'roll': 0.0, 'pitch': -45.0, 'yaw': 0.0,
-            'width': 256, 'height': 144, 'fov': 90,
-            'id': 'rgb_with_car'
-            })
-
-        return result
-
     def setup(self, path_to_conf_file):
         super().setup(path_to_conf_file)
 
@@ -92,16 +72,6 @@ class ImageAgent(BaseAgent):
         self.net = ImageModel.load_from_checkpoint(path_to_conf_file)
         self.net.cuda()
         self.net.eval()
-
-
-        # addition: modified from leaderboard/team_code/auto_pilot.py
-        self.save_path = None
-
-        parent_folder = 'collected_data'
-        if os.environ['TEAM_AGENT'] == 'leaderboard/team_code/auto_pilot.py':
-            parent_folder = 'collected_data_autopilot'
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-        self.save_path = pathlib.Path(parent_folder) / string
 
 
 
@@ -115,15 +85,6 @@ class ImageAgent(BaseAgent):
         far_command = tick_data['far_command']
         speed = tick_data['speed']
 
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
-
-
-
-        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
-        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
-        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
-        rgb_with_car_str = string + '/' + 'rgb_with_car' + '/' + ('%04d.png' % frame)
 
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
@@ -132,7 +93,7 @@ class ImageAgent(BaseAgent):
         topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
         rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv' ).open("a") as f_out:
             f_out.write(data_row+'\n')
 
@@ -153,10 +114,13 @@ class ImageAgent(BaseAgent):
         self._speed_controller = PIDController(K_P=5.0, K_I=0.5, K_D=1.0, n=40)
 
         # addition:
-        self._vehicle = CarlaActorPool.get_hero_actor()
+        self._vehicle = CarlaDataProvider.get_hero_actor()
         self._world = self._vehicle.get_world()
 
     def tick(self, input_data):
+
+
+
         result = super().tick(input_data)
         result['image'] = np.concatenate(tuple(result[x] for x in ['rgb', 'rgb_left', 'rgb_right']), -1)
 
@@ -285,6 +249,10 @@ class ImageAgent(BaseAgent):
             title_row = ','.join(['frame_id', 'far_command', 'speed', 'steering', 'throttle', 'brake', 'center', 'left', 'right'])
             with (self.save_path / 'measurements.csv' ).open("a") as f_out:
                 f_out.write(title_row+'\n')
-        # if self.step % 10 == 0:
-        self.save(steer, throttle, brake, tick_data)
+        if self.step % 2 == 0:
+            self.gather_info()
+
+        record_every_n_steps = self.record_every_n_step
+        if self.step % record_every_n_steps == 0:
+            self.save(steer, throttle, brake, tick_data)
         return control

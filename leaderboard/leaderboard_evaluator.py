@@ -26,6 +26,7 @@ import torchvision
 # addition
 import pathlib
 import time
+import logging
 
 import carla
 from srunner.scenariomanager.carla_data_provider import *
@@ -49,6 +50,8 @@ from leaderboard.autoagents.agent_wrapper import SensorConfigurationInvalid
 from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
 
+import atexit
+from customized_utils import specify_args, start_server, exit_handler
 
 
 # addition
@@ -85,7 +88,7 @@ WEATHERS = [
         carla.WeatherParameters(90.0, 0.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
         # wetcloudy night
         carla.WeatherParameters(80.0, 30.0, 50.0, 0.40, 0.0, -90.0, 0.0, 0.0, 0.0),
-        # hardrain night: pick 19
+        # hardrain night
         carla.WeatherParameters(80.0, 60.0, 100.0, 1.00, 0.0, -90.0, 0.0, 0.0, 0.0),
         # softrain night
         carla.WeatherParameters(90.0, 15.0, 50.0, 0.35, 0.0, -90.0, 0.0, 0.0, 0.0),
@@ -120,19 +123,37 @@ class LeaderboardEvaluator(object):
     # modification: 20.0 -> 10.0
     frame_rate = 10.0      # in Hz
 
-    def __init__(self, args, statistics_manager):
+    def __init__(self, args, statistics_manager, launch_server=False):
         """
         Setup CARLA client and world
         Setup ScenarioManager
         """
+
         self.statistics_manager = statistics_manager
         self.sensors = []
         self._vehicle_lights = carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
 
         # First of all, we need to create the client that will send the requests
-        # to the simulator. Here we'll assume the simulator is accepting
-        # requests in the localhost at port 2000.
-        self.client = carla.Client(args.host, int(args.port))
+        # to the simulator.
+        if os.environ['HAS_DISPLAY'] == '0':
+            os.environ["DISPLAY"] = ''
+
+
+        if launch_server:
+            start_server(args.port)
+
+
+        while True:
+            try:
+                self.client = carla.Client(args.host, int(args.port))
+                break
+            except:
+                logging.exception("__init__ error")
+                traceback.print_exc()
+
+
+
+
         if args.timeout:
             self.client_timeout = float(args.timeout)
         self.client.set_timeout(self.client_timeout)
@@ -147,20 +168,18 @@ class LeaderboardEvaluator(object):
         self.module_agent = importlib.import_module(module_name)
 
         # Create the ScenarioManager
-        self.manager = ScenarioManager(args.debug, args.challenge_mode, args.track, self.client_timeout)
+        self.manager = ScenarioManager(args.debug, args.sync, args.challenge_mode, args.track, self.client_timeout)
 
         # Time control for summary purposes
         self._start_time = GameTime.get_time()
         self._end_time = None
 
         # addition
-        parent_folder = 'collected_data'
-        if args.agent == 'leaderboard/team_code/auto_pilot.py':
-            parent_folder = 'collected_data_autopilot'
+        parent_folder = args.save_folder
         print('-'*100, args.agent, os.environ['TEAM_AGENT'], '-'*100)
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
-        string = pathlib.Path(os.environ['ROUTES']).stem + '_' + os.environ['WEATHER_INDEX']
+        string = pathlib.Path(os.environ['ROUTES']).stem
         current_record_folder = pathlib.Path(parent_folder) / string
 
         if os.path.exists(str(current_record_folder)):
@@ -203,7 +222,6 @@ class LeaderboardEvaluator(object):
         self.client.stop_recorder()
 
         CarlaDataProvider.cleanup()
-        CarlaActorPool.cleanup()
 
         for i, _ in enumerate(self.ego_vehicles):
             if self.ego_vehicles[i]:
@@ -223,12 +241,7 @@ class LeaderboardEvaluator(object):
 
         if not wait_for_ego_vehicles:
             for vehicle in ego_vehicles:
-                self.ego_vehicles.append(CarlaActorPool.setup_actor(vehicle.model,
-                                                                    vehicle.transform,
-                                                                    vehicle.rolename,
-                                                                    True,
-                                                                    color=vehicle.color,
-                                                                    vehicle_category=vehicle.category))
+                self.ego_vehicles.append(CarlaDataProvider.setup_actor(vehicle.model, vehicle.transform, vehicle.rolename, True, color=vehicle.color, vehicle_category=vehicle.category))
         else:
             ego_vehicle_missing = True
             while ego_vehicle_missing:
@@ -254,8 +267,18 @@ class LeaderboardEvaluator(object):
 
     def _load_and_wait_for_world(self, args, town, ego_vehicles=None):
         """
-        Load a new CARLA world and provide data to CarlaActorPool and CarlaDataProvider
+        Load a new CARLA world and provide data to CarlaDataProvider and CarlaDataProvider
         """
+        while True:
+            try:
+                self.world = self.client.load_world(town)
+                break
+            except:
+                logging.exception("_load_and_wait_for_world error")
+                traceback.print_exc()
+
+                start_server(args.port)
+                self.client = carla.Client(args.host, int(args.port))
 
         self.world = self.client.load_world(town)
         settings = self.world.get_settings()
@@ -263,8 +286,8 @@ class LeaderboardEvaluator(object):
         settings.synchronous_mode = True
         self.world.apply_settings(settings)
 
-        CarlaActorPool.set_client(self.client)
-        CarlaActorPool.set_world(self.world)
+        CarlaDataProvider.set_client(self.client)
+        CarlaDataProvider.set_world(self.world)
         CarlaDataProvider.set_world(self.world)
 
         spectator = CarlaDataProvider.get_world().get_spectator()
@@ -283,10 +306,14 @@ class LeaderboardEvaluator(object):
 
         return True
 
-    def _load_and_run_scenario(self, args, config):
+    def _load_and_run_scenario(self, args, config, customized_data):
         """
         Load and run the scenario given by config
         """
+
+
+
+
         # addition: hack
         config.weather =  WEATHERS[args.weather_index]
 
@@ -298,6 +325,8 @@ class LeaderboardEvaluator(object):
         agent_class_name = getattr(self.module_agent, 'get_entry_point')()
         try:
             self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+            # addition
+            self.agent_instance.set_deviations_path(args.deviations_folder)
             config.agent = self.agent_instance
             self.sensors = [sensors_to_icons[sensor['type']] for sensor in self.agent_instance.sensors()]
         except Exception as e:
@@ -310,7 +339,7 @@ class LeaderboardEvaluator(object):
 
         try:
             self._prepare_ego_vehicles(config.ego_vehicles, False)
-            scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug)
+            scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug, customized_data=customized_data)
 
         except Exception as exception:
             print("The scenario cannot be loaded")
@@ -394,7 +423,7 @@ class LeaderboardEvaluator(object):
 
         self._cleanup()
 
-    def run(self, args):
+    def run(self, args, customized_data):
         """
         Run the challenge mode
         """
@@ -409,7 +438,7 @@ class LeaderboardEvaluator(object):
             config = route_indexer.next()
 
             # run
-            self._load_and_run_scenario(args, config)
+            self._load_and_run_scenario(args, config, customized_data)
             self._cleanup(ego=True)
 
             route_indexer.save_state(self.save_path)
@@ -421,79 +450,97 @@ class LeaderboardEvaluator(object):
 
 
 def main():
-    description = "CARLA AD Leaderboard Evaluation: evaluate your Agent in CARLA scenarios\n"
+    arguments = specify_args()
+    arguments.debug = True
 
-    # general parameters
-    parser = argparse.ArgumentParser(description=description, formatter_class=RawTextHelpFormatter)
-    parser.add_argument('--host', default='localhost',
-                        help='IP of the host server (default: localhost)')
-    parser.add_argument('--port', default='2000', help='TCP port to listen to (default: 2000)')
-    parser.add_argument('--debug', type=int, help='Run with debug output', default=0)
-    parser.add_argument('--spectator', type=bool, help='Switch spectator view on?', default=True)
-    parser.add_argument('--record', type=str, default='',
-                        help='Use CARLA recording feature to create a recording of the scenario')
-    parser.add_argument('--timeout', default="30.0",
-                        help='Set the CARLA client timeout value in seconds')
-
-    # simulation setup
-    parser.add_argument('--challenge-mode', action="store_true", help='Switch to challenge mode?')
-    parser.add_argument('--routes',
-                        help='Name of the route to be executed. Point to the route_xml_file to be executed.',
-                        required=True)
-    parser.add_argument('--scenarios',
-                        help='Name of the scenario annotation file to be mixed with the route.',
-                        required=True)
-    parser.add_argument('--repetitions',
-                        type=int,
-                        default=1,
-                        help='Number of repetitions per route.')
-
-    # agent-related options
-    parser.add_argument("-a", "--agent", type=str, help="Path to Agent's py file to evaluate", required=True)
-    parser.add_argument("--agent-config", type=str, help="Path to Agent's configuration file", default="")
-
-    parser.add_argument("--track", type=str, default='SENSORS', help="Participation track: SENSORS, MAP")
-    parser.add_argument('--resume', type=bool, default=False, help='Resume execution from last checkpoint?')
-    parser.add_argument("--checkpoint", type=str,
-                        default='./simulation_results.json',
-                        help="Path to checkpoint used for saving statistics and resuming")
-
-    # addition
-    parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
-
-    arguments = parser.parse_args()
+    atexit.register(exit_handler, [arguments.port])
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
     # only 15 record vehicle's location for red light run
-    weather_indexes = [15]
-    routes = [i for i in range(76)]
+
+
+
+
+    # weather_indexes is a subset of integers in [0, 20]
+    weather_indexes = [2]
+    routes = [i for i in range(0, 10)]
+
+    using_customized_route_and_scenario = False
+
+
+    # multi_actors_scenarios = ['Scenario4']
+
+
+    route_prefix = 'leaderboard/data/routes/route_'
+    town_names = ['TownX']
+    scenarios = ['ScenarioX']
+    directions = ['directionX']
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
         weather_indexes = weather_indexes[:1]
 
     time_start = time.time()
-    for weather_index in weather_indexes:
-        arguments.weather_index = weather_index
-        os.environ['WEATHER_INDEX'] = str(weather_index)
 
-        for route in routes:
-            route_str = str(route)
-            if route < 10:
-                route_str = '0'+route_str
-            arguments.routes = 'leaderboard/data/routes/route_'+route_str+'.xml'
-            os.environ['ROUTES'] = arguments.routes
+    for town_name in town_names:
+        for scenario in scenarios:
+            # if scenario not in multi_actors_scenarios:
+            #     directions = [None]
+            for dir in directions:
+                for weather_index in weather_indexes:
+                    arguments.weather_index = weather_index
+                    os.environ['WEATHER_INDEX'] = str(weather_index)
 
-            try:
-                leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
-                leaderboard_evaluator.run(arguments)
+                    if using_customized_route_and_scenario:
 
-            except Exception as e:
-                traceback.print_exc()
-            finally:
-                del leaderboard_evaluator
-            print('time elapsed :', time.time()-time_start)
+                        town_scenario_direction = town_name + '/' + scenario
+
+                        folder_1 = os.environ['SAVE_FOLDER'] + '/' + town_name
+                        folder_2 = folder_1 + '/' + scenario
+                        if not os.path.exists(folder_1):
+                            os.mkdir(folder_1)
+                        if not os.path.exists(folder_2):
+                            os.mkdir(folder_2)
+                        if scenario in multi_actors_scenarios:
+                            town_scenario_direction += '/' + dir
+                            folder_2 += '/' + dir
+                            if not os.path.exists(folder_2):
+                                os.mkdir(folder_2)
+
+
+
+                        os.environ['SAVE_FOLDER'] = folder_2
+                        arguments.save_folder = os.environ['SAVE_FOLDER']
+
+                        route_prefix = 'leaderboard/data/customized_routes/' + town_scenario_direction + '/route_'
+
+
+
+                    for i, route in enumerate(routes):
+                        print('\n'*10, route, '\n'*10)
+                        customized_data = None
+
+
+                        route_str = str(route)
+                        if route < 10:
+                            route_str = '0'+route_str
+                        arguments.routes = route_prefix+route_str+'.xml'
+                        os.environ['ROUTES'] = arguments.routes
+                        if i == 0:
+                            launch_server = True
+                        else:
+                            launch_server = False
+
+                        try:
+                            leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager, launch_server)
+                            leaderboard_evaluator.run(arguments, customized_data)
+
+                        except Exception as e:
+                            traceback.print_exc()
+                        finally:
+                            del leaderboard_evaluator
+                        print('time elapsed :', time.time()-time_start)
 
 
 if __name__ == '__main__':
