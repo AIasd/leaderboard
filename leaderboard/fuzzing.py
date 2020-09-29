@@ -29,8 +29,7 @@ import time
 import numpy as np
 import traceback
 import logging
-import shlex
-import subprocess
+
 
 import carla
 from srunner.scenariomanager.carla_data_provider import *
@@ -59,16 +58,11 @@ from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
-from customized_utils import create_transform, specify_args, is_port_in_use, make_hierarchical_dir
+from customized_utils import create_transform, specify_args, is_port_in_use, make_hierarchical_dir, start_server, port_to_gpu
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
 from psutil import process_iter
-from signal import SIGTERM, SIGKILL
-
-
-
-port_to_gpu = {2000:0, 2003:1, 2006:0, 2009:1, 2012:0, 2015:1, 2018:0, 2021:1, 2024:0, 2027:1, 2030:0, 2033:1, 2036:0, 2039:1, 2042:0, 2045:1}
 
 
 
@@ -112,42 +106,18 @@ class LeaderboardEvaluator(object):
         self.episode_max_time = episode_max_time
 
         # First of all, we need to create the client that will send the requests
-        # to the simulator. Here we'll assume the simulator is accepting
-        # requests in the localhost at port 2000.
-
+        # to the simulator.
 
         # This is currently set to be consistent with os.environ['HAS_DISPLAY'].
         # however, it is possible to control them separately.
         if os.environ['HAS_DISPLAY'] == '0':
             os.environ["DISPLAY"] = ''
 
-
-
-        gpu = port_to_gpu[args.port]
-
-        # if os.environ.get('SUDO_USER') is not None:
-        #     username = os.environ['SUDO_USER']
-        # else:
-        #     username = os.environ['USER']
-
-        # print('\n'*10, 'username', username, '\n'*10)
+        gpu = port_to_gpu(int(args.port))
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
-        self.cmd_list = shlex.split('sh ../carla_0994_no_rss/CarlaUE4.sh -opengl -carla-rpc-port='+str(args.port)+' -carla-streaming-port=0')
-
-
 
         if launch_server:
-            while is_port_in_use(args.port):
-                try:
-                    subprocess.run('kill $(lsof -t -i :'+str(args.port)+')', shell=True)
-                    print('-'*20, 'kill server at port', port)
-                    time.sleep(2)
-                except:
-                    continue
-            subprocess.Popen(self.cmd_list)
-            print('-'*20, 'start server at port', args.port)
-            # 10s is usually enough
-            time.sleep(10)
+            start_server(args.port)
 
 
         while True:
@@ -290,18 +260,7 @@ class LeaderboardEvaluator(object):
                 logging.exception("_load_and_wait_for_world error")
                 traceback.print_exc()
 
-                while is_port_in_use(args.port):
-                    for proc in process_iter():
-                        for conns in proc.connections(kind='inet'):
-                            if conns.laddr.port == args.port:
-                                proc.send_signal(SIGKILL)
-                                print('-'*500, 'kill server at port', args.port)
-                    time.sleep(2)
-
-                subprocess.Popen(self.cmd_list)
-                print('-'*20, 'start server at port', args.port)
-                time.sleep(10)
-
+                start_server(args.port)
                 self.client = carla.Client(args.host, int(args.port))
 
 
@@ -666,7 +625,11 @@ def main():
     'center_transform': center_transform, 'using_customized_route_and_scenario':True,
     'destination': route_waypoints[-1].location,
     'sample_factor': sample_factor,
-    'ego_car_waypoints_perturbation': ego_car_waypoints_perturbation}
+    'ego_car_waypoints_perturbation': ego_car_waypoints_perturbation,
+    'port': arguments.port,
+    'customized_center_transforms': {},
+    'parameters_min_bounds': [],
+    'parameters_max_bounds': []}
 
 
 

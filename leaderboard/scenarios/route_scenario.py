@@ -227,9 +227,15 @@ class RouteScenario(BasicScenario):
 
         # prepare route's trajectory (interpolate and add the GPS route)
         gps_route, route = interpolate_trajectory(world, config.trajectory)
-        config.agent.set_global_plan(gps_route, route, self.customized_data['sample_factor'])
 
-        perturb_route(config.agent._global_plan_world_coord, self.customized_data['ego_car_waypoints_perturbation'])
+        if self.customized_data:
+            sample_factor = self.customized_data['sample_factor']
+            config.agent.set_global_plan(gps_route, route, sample_factor)
+        else:
+            config.agent.set_global_plan(gps_route, route)
+
+        if self.customized_data:
+            perturb_route(config.agent._global_plan_world_coord, self.customized_data['ego_car_waypoints_perturbation'])
 
 
 
@@ -243,7 +249,7 @@ class RouteScenario(BasicScenario):
 
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
-        print('\n potential_scenarios_definitions :', potential_scenarios_definitions, '\n')
+        print('\n potential_scenarios_definitions :', len(potential_scenarios_definitions[0]), '\n')
 
         CarlaDataProvider.set_ego_vehicle_route(convert_transform_to_location(self.route))
 
@@ -415,7 +421,7 @@ class RouteScenario(BasicScenario):
             scenario_configuration.route_var_name = route_var_name
             scenario_configuration.cur_server_port = self.config.cur_server_port
             try:
-                if definition['name'] in ['Scenario4', 'Scenario12']:
+                if definition['name'] in ['Scenario12']:
                     scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout, customized_data=self.customized_data)
                 else:
                     scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration, criteria_enable=False, timeout=timeout)
@@ -487,7 +493,7 @@ class RouteScenario(BasicScenario):
         amount = town_amount[config.town] if config.town in town_amount else 0
 
         # modification: we temporarily disable background activities
-        if self.customized_data['using_customized_route_and_scenario'] == True:
+        if self.customized_data:
             amount = 0
 
         new_actors = CarlaDataProvider.request_new_batch_actors('vehicle.*',
@@ -578,7 +584,7 @@ class RouteScenario(BasicScenario):
 
         blocked_criterion = ActorSpeedAboveThresholdTest(self.ego_vehicles[0],
                                                          speed_threshold=0.1,
-                                                         below_threshold_max_time=90.0,
+                                                         below_threshold_max_time=30.0,
                                                          terminate_on_failure=True)
 
         onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)

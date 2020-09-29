@@ -13,14 +13,20 @@ from leaderboard.utils.route_manipulation import interpolate_trajectory
 from customized_utils import get_angle, visualize_route
 import os
 import math
+import pathlib
 
 class BaseAgent(autonomous_agent.AutonomousAgent):
     def setup(self, path_to_conf_file):
         self.track = autonomous_agent.Track.SENSORS
         self.config_path = path_to_conf_file
         self.step = -1
+        self.record_every_n_step = 3
         self.wall_start = time.time()
         self.initialized = False
+
+        parent_folder = os.environ['SAVE_FOLDER']
+        string = pathlib.Path(os.environ['ROUTES']).stem
+        self.save_path = pathlib.Path(parent_folder) / string
 
     def _init(self):
         self._command_planner = RoutePlanner(7.5, 25.0, 257)

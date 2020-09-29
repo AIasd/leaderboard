@@ -26,6 +26,7 @@ import torchvision
 # addition
 import pathlib
 import time
+import logging
 
 import carla
 from srunner.scenariomanager.carla_data_provider import *
@@ -49,6 +50,8 @@ from leaderboard.autoagents.agent_wrapper import SensorConfigurationInvalid
 from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
 
+import atexit
+from customized_utils import specify_args, start_server, exit_handler
 
 
 # addition
@@ -120,7 +123,7 @@ class LeaderboardEvaluator(object):
     # modification: 20.0 -> 10.0
     frame_rate = 10.0      # in Hz
 
-    def __init__(self, args, statistics_manager, customized_data=None):
+    def __init__(self, args, statistics_manager, launch_server=False):
         """
         Setup CARLA client and world
         Setup ScenarioManager
@@ -131,9 +134,26 @@ class LeaderboardEvaluator(object):
         self._vehicle_lights = carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
 
         # First of all, we need to create the client that will send the requests
-        # to the simulator. Here we'll assume the simulator is accepting
-        # requests in the localhost at port 2000.
-        self.client = carla.Client(args.host, int(args.port))
+        # to the simulator.
+        if os.environ['HAS_DISPLAY'] == '0':
+            os.environ["DISPLAY"] = ''
+
+
+        if launch_server:
+            start_server(args.port)
+
+
+        while True:
+            try:
+                self.client = carla.Client(args.host, int(args.port))
+                break
+            except:
+                logging.exception("__init__ error")
+                traceback.print_exc()
+
+
+
+
         if args.timeout:
             self.client_timeout = float(args.timeout)
         self.client.set_timeout(self.client_timeout)
@@ -249,6 +269,16 @@ class LeaderboardEvaluator(object):
         """
         Load a new CARLA world and provide data to CarlaDataProvider and CarlaDataProvider
         """
+        while True:
+            try:
+                self.world = self.client.load_world(town)
+                break
+            except:
+                logging.exception("_load_and_wait_for_world error")
+                traceback.print_exc()
+
+                start_server(args.port)
+                self.client = carla.Client(args.host, int(args.port))
 
         self.world = self.client.load_world(town)
         settings = self.world.get_settings()
@@ -280,6 +310,10 @@ class LeaderboardEvaluator(object):
         """
         Load and run the scenario given by config
         """
+
+
+
+
         # addition: hack
         config.weather =  WEATHERS[args.weather_index]
 
@@ -291,6 +325,8 @@ class LeaderboardEvaluator(object):
         agent_class_name = getattr(self.module_agent, 'get_entry_point')()
         try:
             self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+            # addition
+            self.agent_instance.set_deviations_path(args.deviations_folder)
             config.agent = self.agent_instance
             self.sensors = [sensors_to_icons[sensor['type']] for sensor in self.agent_instance.sensors()]
         except Exception as e:
@@ -414,53 +450,10 @@ class LeaderboardEvaluator(object):
 
 
 def main():
-    description = "CARLA AD Leaderboard Evaluation: evaluate your Agent in CARLA scenarios\n"
+    arguments = specify_args()
+    arguments.debug = True
 
-    # general parameters
-    parser = argparse.ArgumentParser(description=description, formatter_class=RawTextHelpFormatter)
-    parser.add_argument('--host', default='localhost',
-                        help='IP of the host server (default: localhost)')
-    parser.add_argument('--port', default='2000', help='TCP port to listen to (default: 2000)')
-    parser.add_argument('--sync', action='store_true',
-                        help='Forces the simulation to run synchronously')
-    parser.add_argument('--debug', type=int, help='Run with debug output', default=0)
-    parser.add_argument('--spectator', type=bool, help='Switch spectator view on?', default=True)
-    parser.add_argument('--record', type=str, default='',
-                        help='Use CARLA recording feature to create a recording of the scenario')
-    # modification: 30->15
-    parser.add_argument('--timeout', default="30.0",
-                        help='Set the CARLA client timeout value in seconds')
-
-    # simulation setup
-    parser.add_argument('--challenge-mode', action="store_true", help='Switch to challenge mode?')
-    parser.add_argument('--routes',
-                        help='Name of the route to be executed. Point to the route_xml_file to be executed.',
-                        required=True)
-    parser.add_argument('--scenarios',
-                        help='Name of the scenario annotation file to be mixed with the route.',
-                        required=True)
-    parser.add_argument('--repetitions',
-                        type=int,
-                        default=1,
-                        help='Number of repetitions per route.')
-
-    # agent-related options
-    parser.add_argument("-a", "--agent", type=str, help="Path to Agent's py file to evaluate", required=True)
-    parser.add_argument("--agent-config", type=str, help="Path to Agent's configuration file", default="")
-
-    parser.add_argument("--track", type=str, default='SENSORS', help="Participation track: SENSORS, MAP")
-    parser.add_argument('--resume', type=bool, default=False, help='Resume execution from last checkpoint?')
-    parser.add_argument("--checkpoint", type=str,
-                        default='./simulation_results.json',
-                        help="Path to checkpoint used for saving statistics and resuming")
-
-    # addition
-    parser.add_argument("--weather-index", type=int, default=0, help="see WEATHER for reference")
-    parser.add_argument("--save_folder", type=str, default='collected_data', help="Path to save simulation data")
-
-
-    arguments = parser.parse_args()
-    # arguments.debug = True
+    atexit.register(exit_handler, [arguments.port])
 
     statistics_manager = StatisticsManager()
     # 0, 1, 2, 3, 10, 11, 14, 15, 19
@@ -471,25 +464,18 @@ def main():
 
     # weather_indexes is a subset of integers in [0, 20]
     weather_indexes = [2]
-    routes = [i for i in range(0, 1)]
+    routes = [i for i in range(0, 10)]
 
-    using_customized_route_and_scenario = True
-
-
+    using_customized_route_and_scenario = False
 
 
-    multi_actors_scenarios = ['Scenario4']
-    if using_customized_route_and_scenario:
-        arguments.scenarios = 'leaderboard/data/customized_scenarios.json'
-        town_names = ['Town01']
-        scenarios = ['Scenario4']
-        directions = ['right']
-        routes = [0]
-    else:
-        route_prefix = 'leaderboard/data/routes/route_'
-        town_names = [None]
-        scenarios = [None]
-        directions = [None]
+    # multi_actors_scenarios = ['Scenario4']
+
+
+    route_prefix = 'leaderboard/data/routes/route_'
+    town_names = ['TownX']
+    scenarios = ['ScenarioX']
+    directions = ['directionX']
 
     # if we use autopilot, we only need one run of weather index since we constantly switching weathers for diversity
     if arguments.agent == 'leaderboard/team_code/auto_pilot.py':
@@ -499,8 +485,8 @@ def main():
 
     for town_name in town_names:
         for scenario in scenarios:
-            if scenario not in multi_actors_scenarios:
-                directions = [None]
+            # if scenario not in multi_actors_scenarios:
+            #     directions = [None]
             for dir in directions:
                 for weather_index in weather_indexes:
                     arguments.weather_index = weather_index
@@ -531,30 +517,9 @@ def main():
 
 
 
-                    for route in routes:
-                        # addition
-                        # dx: -10~10
-                        # dy: -5~50
-                        # dyaw: -90~90
-                        # d_activation_dist: -20~20
-                        # _other_actor_target_velocity: 0~20
-                        # actor_type: see specs.txt for a detailed options
-                        dx = 0
-                        dy = 0
-                        dyaw = 0
-                        d_activation_dist = 0
-                        _other_actor_target_velocity = 5
-                        actor_type = 'vehicle.diamondback.century'
-
-                        if using_customized_route_and_scenario:
-                            dx = 0
-                            dy = 0
-                            dyaw = -40
-                            d_activation_dist = 0
-                            _other_actor_target_velocity = 5
-
-
-                        customized_data = {'dx': dx, 'dy': dy, 'dyaw': dyaw, 'd_activation_dist': d_activation_dist, '_other_actor_target_velocity': _other_actor_target_velocity, 'using_customized_route_and_scenario':using_customized_route_and_scenario, 'actor_type': actor_type}
+                    for i, route in enumerate(routes):
+                        print('\n'*10, route, '\n'*10)
+                        customized_data = None
 
 
                         route_str = str(route)
@@ -562,10 +527,13 @@ def main():
                             route_str = '0'+route_str
                         arguments.routes = route_prefix+route_str+'.xml'
                         os.environ['ROUTES'] = arguments.routes
-
+                        if i == 0:
+                            launch_server = True
+                        else:
+                            launch_server = False
 
                         try:
-                            leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
+                            leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager, launch_server)
                             leaderboard_evaluator.run(arguments, customized_data)
 
                         except Exception as e:

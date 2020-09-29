@@ -74,14 +74,6 @@ class ImageAgent(BaseAgent):
         self.net.eval()
 
 
-        # addition: modified from leaderboard/team_code/auto_pilot.py
-        self.save_path = None
-
-        parent_folder = os.environ['SAVE_FOLDER']
-        string = pathlib.Path(os.environ['ROUTES']).stem
-        self.save_path = pathlib.Path(parent_folder) / string
-
-
 
 
     # addition: modified from leaderboard/team_code/auto_pilot.py
@@ -93,15 +85,6 @@ class ImageAgent(BaseAgent):
         far_command = tick_data['far_command']
         speed = tick_data['speed']
 
-        string = os.environ['SAVE_FOLDER']+'/'+pathlib.Path(os.environ['ROUTES']).stem
-
-
-
-        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
-        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
-        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
-        # rgb_with_car_str = string + '/' + 'rgb_with_car' + '/' + ('%04d.png' % frame)
 
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
@@ -110,7 +93,7 @@ class ImageAgent(BaseAgent):
         topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
         rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv' ).open("a") as f_out:
             f_out.write(data_row+'\n')
 
@@ -269,7 +252,7 @@ class ImageAgent(BaseAgent):
         if self.step % 2 == 0:
             self.gather_info()
 
-        record_every_n_steps = 3
+        record_every_n_steps = self.record_every_n_step
         if self.step % record_every_n_steps == 0:
             self.save(steer, throttle, brake, tick_data)
         return control

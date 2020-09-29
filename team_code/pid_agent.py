@@ -45,17 +45,6 @@ def _location(x, y, z):
 
 
 class PIDAgent(MapAgent):
-    def setup(self, path_to_conf_file):
-        super().setup(path_to_conf_file)
-
-        self.save_path = None
-
-        parent_folder = os.environ['SAVE_FOLDER']
-        string = pathlib.Path(os.environ['ROUTES']).stem
-        self.save_path = pathlib.Path(parent_folder) / string
-
-
-
     def _init(self):
         super()._init()
 
@@ -203,7 +192,7 @@ class PIDAgent(MapAgent):
         if self.step % 2 == 0:
             self.gather_info()
 
-        record_every_n_steps = 3
+        record_every_n_steps = self.record_every_n_step
         if self.step % record_every_n_steps == 0:
             self.save('', steer, throttle, brake, self.target_speed, data)
 
@@ -214,12 +203,7 @@ class PIDAgent(MapAgent):
         frame = self.step
 
         speed = tick_data['speed']
-        string = os.environ['SAVE_FOLDER'] + '/' + pathlib.Path(os.environ['ROUTES']).stem
 
-        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
-        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
-        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
@@ -227,7 +211,7 @@ class PIDAgent(MapAgent):
         topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
         rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv').open("a") as f_out:
             f_out.write(data_row+'\n')
 

@@ -54,17 +54,6 @@ def get_collision(p1, v1, p2, v2):
 
 
 class AutoPilot(MapAgent):
-    def setup(self, path_to_conf_file):
-        super().setup(path_to_conf_file)
-
-        self.save_path = None
-
-        parent_folder = os.environ['SAVE_FOLDER']
-        string = pathlib.Path(os.environ['ROUTES']).stem
-        self.save_path = pathlib.Path(parent_folder) / string
-
-
-
     def _init(self):
         super()._init()
 
@@ -172,7 +161,7 @@ class AutoPilot(MapAgent):
 
 
         # if this number is very small, we may not have the exact numbers and images for the event happening (e.g. the frame when a collision happen). However, this is usually ok if we only use these for retraining purpose
-        record_every_n_steps = 3
+        record_every_n_steps = self.record_every_n_step
         if self.step % record_every_n_steps == 0:
             self.save(record_every_n_steps, far_command, steer, throttle, brake, target_speed, data)
             self.save_json(record_every_n_steps, far_node, near_command, steer, throttle, brake, target_speed, data)
@@ -212,22 +201,18 @@ class AutoPilot(MapAgent):
 
 
 
-
         speed = tick_data['speed']
-        string = os.environ['SAVE_FOLDER'] + '/' + pathlib.Path(os.environ['ROUTES']).stem
-
-        center_str = string + '/' + 'rgb' + '/' + ('%04d.png' % frame)
-        left_str = string + '/' + 'rgb_left' + '/' + ('%04d.png' % frame)
-        right_str = string + '/' + 'rgb_right' + '/' + ('%04d.png' % frame)
-        # topdown_str = string + '/' + 'topdown' + '/' + ('%04d.png' % frame)
 
         center = self.save_path / 'rgb' / ('%04d.png' % frame)
         left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
         right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
+
+
+
         topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
         rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
 
-        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, center_str, left_str, right_str]])
+        data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv').open("a") as f_out:
             f_out.write(data_row+'\n')
 
