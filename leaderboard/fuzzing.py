@@ -296,7 +296,12 @@ class LeaderboardEvaluator(object):
         Load and run the scenario given by config
         """
         # hack:
-        config.weather = WEATHERS[args.weather_index]
+        if args.weather_index == -1:
+            weather = customized_data['fine_grained_weather']
+        else:
+            weather = WEATHERS[args.weather_index]
+
+        config.weather = weather
         config.friction = customized_data['friction']
         config.cur_server_port = customized_data['port']
 
