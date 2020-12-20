@@ -46,7 +46,7 @@ class RouteParser(object):
         return final_dict  # the file has a current maps name that is an one element vec
 
     @staticmethod
-    def parse_routes_file(route_filename, scenario_file, single_route=None):
+    def parse_routes_file(route_filename, scenario_file, single_route=None, background_vehicles=False):
         """
         Returns a list of route elements.
         :param route_filename: the path to a set of routes.
@@ -78,7 +78,11 @@ class RouteParser(object):
                 # Waypoints is basically a list of XML nodes
 
             new_config.trajectory = waypoint_list
+
+            new_config.background_vehicles = background_vehicles
             list_route_descriptions.append(new_config)
+
+
 
         return list_route_descriptions
 

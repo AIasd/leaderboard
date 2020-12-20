@@ -49,6 +49,18 @@ class AgentWrapper(object):
     """
     Wrapper for autonomous agents required for tracking and checking of used sensors
     """
+    allowed_sensors = [
+        'sensor.opendrive_map',
+        'sensor.speedometer',
+        'sensor.camera.rgb',
+        'sensor.camera',
+        'sensor.lidar.ray_cast',
+        'sensor.other.radar',
+        'sensor.other.gnss',
+        'sensor.other.imu'
+        'sensor.other.imu',
+        'sensor.camera.semantic_segmentation',
+    ]
 
     _agent = None
     _sensors_list = []
@@ -121,8 +133,8 @@ class AgentWrapper(object):
                                                      roll=sensor_spec['roll'],
                                                      yaw=sensor_spec['yaw'])
                 elif sensor_spec['type'].startswith('sensor.other.radar'):
-                    bp.set_attribute('horizontal_fov', str(sensor_spec['fov']))  # degrees
-                    bp.set_attribute('vertical_fov', str(sensor_spec['fov']))  # degrees
+                    bp.set_attribute('horizontal_fov', str(sensor_spec['horizontal_fov']))  # degrees
+                    bp.set_attribute('vertical_fov', str(sensor_spec['vertical_fov']))  # degrees
                     bp.set_attribute('points_per_second', '1500')
                     bp.set_attribute('range', '100')  # meters
 

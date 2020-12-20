@@ -10,7 +10,7 @@ from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 import numpy as np
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
-from customized_utils import get_angle, visualize_route
+from customized_utils import get_angle, visualize_route, norm_2d, get_bbox, angle_from_center_view_fov
 import os
 import math
 import pathlib
@@ -20,7 +20,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         self.track = autonomous_agent.Track.SENSORS
         self.config_path = path_to_conf_file
         self.step = -1
-        self.record_every_n_step = 3
+        self.record_every_n_step = 5
         self.wall_start = time.time()
         self.initialized = False
 
@@ -112,10 +112,17 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                     },
                 {
                     'type': 'sensor.camera.rgb',
-                    'x': -6, 'y': 0.0, 'z': 4,
-                    'roll': 0.0, 'pitch': -30.0, 'yaw': 0.0,
-                    'width': 256*2, 'height': 144*2, 'fov': 90,
+                    'x': -6, 'y': 0.0, 'z': 3,
+                    'roll': 0.0, 'pitch': -20.0, 'yaw': 0.0,
+                    'width': 256, 'height': 144, 'fov': 90,
                     'id': 'rgb_with_car'
+                    },
+                {
+                    'type': 'sensor.other.radar',
+                    'x': 2, 'y': 0.0, 'z': 1,
+                    'roll': 0.0, 'pitch': 5.0, 'yaw': 0.0,
+                    'horizontal_fov': 35, 'vertical_fov': 20, 'range': 20,
+                    'id': 'radar_central'
                     }
                 ]
 
@@ -143,40 +150,65 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
     # def set_trajectory(self, trajectory):
     #     self.trajectory = trajectory
 
-    def set_deviations_path(self, save_path):
-        self.deviations_path = os.path.join(save_path, 'deviations.txt')
+    def set_args(self, args):
+        self.deviations_path = os.path.join(args.deviations_folder, 'deviations.txt')
+        self.args = args
+
+
+    def record_other_actor_info_for_causal_analysis(self, ego_control_and_speed_info):
+        def get_loc_and_ori(agent):
+            agent_tra = agent.get_transform()
+            agent_loc = agent_tra.location
+            agent_rot = agent_tra.rotation
+            return agent_loc.x, agent_loc.y, agent_rot.yaw
+
+        data_row = []
+        if ego_control_and_speed_info:
+            data_row += ego_control_and_speed_info
+
+        x, y, yaw = get_loc_and_ori(self._vehicle)
+        data_row += [x, y, yaw]
+
+        other_actor_info_path = os.path.join(self.args.deviations_folder, 'other_actor_info.txt')
+
+        actors = self._world.get_actors()
+        vehicle_list = actors.filter('*vehicle*')
+        pedestrian_list = actors.filter('*walker*')
 
 
 
 
-    def gather_info(self):
+        for i, pedestrian in enumerate(pedestrian_list):
+            d_angle_norm = angle_from_center_view_fov(pedestrian, self._vehicle, fov=90)
+            if d_angle_norm == 0:
+                within_view = True
+            else:
+                within_view = False
 
-        def norm_2d(loc_1, loc_2):
-            return np.sqrt((loc_1.x-loc_2.x)**2+(loc_1.y-loc_2.y)**2)
+            x, y, yaw = get_loc_and_ori(pedestrian)
+            data_row.extend([x, y, yaw, within_view])
 
-        def get_bbox(vehicle):
-            current_tra = vehicle.get_transform()
-            current_loc = current_tra.location
+        for i, vehicle in enumerate(vehicle_list):
+            if vehicle.id == self._vehicle.id:
+                continue
 
-            heading_vec = current_tra.get_forward_vector()
-            heading_vec.z = 0
-            heading_vec = heading_vec / math.sqrt(math.pow(heading_vec.x, 2) + math.pow(heading_vec.y, 2))
-            perpendicular_vec = carla.Vector3D(-heading_vec.y, heading_vec.x, 0)
+            d_angle_norm = angle_from_center_view_fov(vehicle, self._vehicle, fov=90)
+            if d_angle_norm == 0:
+                within_view = True
+            else:
+                within_view = False
 
-            extent = vehicle.bounding_box.extent
-            x_boundary_vector = heading_vec * extent.x
-            y_boundary_vector = perpendicular_vec * extent.y
+            x, y, yaw = get_loc_and_ori(vehicle)
+            data_row.extend([x, y, yaw, within_view])
 
-            bbox = [
-                current_loc + carla.Location(x_boundary_vector - y_boundary_vector),
-                current_loc + carla.Location(x_boundary_vector + y_boundary_vector),
-                current_loc + carla.Location(-1 * x_boundary_vector - y_boundary_vector),
-                current_loc + carla.Location(-1 * x_boundary_vector + y_boundary_vector)]
-
-            return bbox
+        with open(other_actor_info_path, 'a') as f_out:
+            f_out.write(','.join([str(d) for d in data_row])+'\n')
 
 
 
+    def gather_info(self, ego_control_and_speed_info=None):
+        if self.step % 1 == 0:
+            self.record_other_actor_info_for_causal_analysis(ego_control_and_speed_info)
 
 
         ego_bbox = get_bbox(self._vehicle)
@@ -191,19 +223,26 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         for i, vehicle in enumerate(vehicle_list):
             if vehicle.id == self._vehicle.id:
                 continue
-            other_bbox = get_bbox(vehicle)
-            for other_b in other_bbox:
-                for ego_b in ego_bbox:
-                    d = norm_2d(other_b, ego_b)
-                    # print('vehicle', i, 'd', d)
-                    min_d = np.min([min_d, d])
+
+            d_angle_norm = angle_from_center_view_fov(vehicle, self._vehicle, fov=90)
+            if d_angle_norm == 0:
+                other_bbox = get_bbox(vehicle)
+                for other_b in other_bbox:
+                    for ego_b in ego_bbox:
+                        d = norm_2d(other_b, ego_b)
+                        # print('vehicle', i, 'd', d)
+                        min_d = np.min([min_d, d])
+
 
         for i, pedestrian in enumerate(pedestrian_list):
-            pedestrian_location = pedestrian.get_transform().location
-            for ego_b in ego_front_bbox:
-                d = norm_2d(pedestrian_location, ego_b)
-                # print('pedestrian', i, 'd', d)
-                min_d = np.min([min_d, d])
+            d_angle_norm = angle_from_center_view_fov(pedestrian, self._vehicle, fov=90)
+            if d_angle_norm == 0:
+                pedestrian_location = pedestrian.get_transform().location
+                for ego_b in ego_front_bbox:
+                    d = norm_2d(pedestrian_location, ego_b)
+                    # print('pedestrian', i, 'd', d)
+                    min_d = np.min([min_d, d])
+
 
         if min_d < self.min_d:
             self.min_d = min_d

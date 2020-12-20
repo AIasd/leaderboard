@@ -46,6 +46,8 @@ from leaderboard.utils.route_manipulation import interpolate_trajectory, _get_la
 # addition
 from customized_utils import visualize_route, perturb_route
 
+
+
 ROUTESCENARIO = ["RouteScenario"]
 
 SECONDS_GIVEN_PER_METERS = 0.4
@@ -487,13 +489,14 @@ class RouteScenario(BasicScenario):
             'Town07': 110,
             'Town08': 180,
             'Town09': 300,
-            'Town10': 120,
+            'Town10HD': 120,
         }
 
-        amount = town_amount[config.town] if config.town in town_amount else 0
 
-        # modification: we temporarily disable background activities
-        if self.customized_data:
+        if config.background_vehicles:
+            amount = town_amount[config.town] if config.town in town_amount else 0
+
+        else:
             amount = 0
 
         new_actors = CarlaDataProvider.request_new_batch_actors('vehicle.*',
@@ -512,6 +515,19 @@ class RouteScenario(BasicScenario):
         # Add all the actors of the specific scenarios to self.other_actors
         for scenario in self.list_scenarios:
             self.other_actors.extend(scenario.other_actors)
+
+
+
+        # new_actors_ped = CarlaDataProvider.request_new_batch_actors('walker.*',
+        #                                                         100,
+        #                                                         carla.Transform(),
+        #                                                         random_location=True,
+        #                                                         rolename='walker')
+        #
+        # if new_actors_ped is None:
+        #     raise Exception("Error: Unable to add the background activity, all spawn points were occupied")
+        #
+        # self.other_actors.extend(new_actors_ped)
 
     def _create_behavior(self):
         """
@@ -584,7 +600,7 @@ class RouteScenario(BasicScenario):
 
         blocked_criterion = ActorSpeedAboveThresholdTest(self.ego_vehicles[0],
                                                          speed_threshold=0.1,
-                                                         below_threshold_max_time=30.0,
+                                                         below_threshold_max_time=80.0,
                                                          terminate_on_failure=True)
 
         onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)

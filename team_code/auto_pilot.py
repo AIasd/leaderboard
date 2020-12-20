@@ -13,6 +13,10 @@ from carla_project.src.common import CONVERTER, COLOR
 from team_code.map_agent import MapAgent
 from team_code.pid_controller import PIDController
 
+from customized_utils import norm_2d, get_bbox
+import json
+
+from object_types import WEATHERS
 
 HAS_DISPLAY = int(os.environ.get('HAS_DISPLAY', 0))
 DEBUG = int(os.environ.get('HAS_DISPLAY', 0))
@@ -57,6 +61,9 @@ class AutoPilot(MapAgent):
     def _init(self):
         super()._init()
 
+        self._default_target_speed = 7.0
+        self._default_slow_target_speed = 4.0
+        self._angle = None
         self._turn_controller = PIDController(K_P=1.25, K_I=0.75, K_D=0.3, n=40)
         self._speed_controller = PIDController(K_P=5.0, K_I=0.5, K_D=1.0, n=40)
 
@@ -80,7 +87,7 @@ class AutoPilot(MapAgent):
         # Steering.
         angle_unnorm = self._get_angle_to(pos, theta, target)
         angle = angle_unnorm / 90
-
+        self._angle = np.radians(angle_unnorm)
         steer = self._turn_controller.step(angle)
         steer = np.clip(steer, -1.0, 1.0)
         steer = round(steer, 3)
@@ -88,10 +95,12 @@ class AutoPilot(MapAgent):
         # Acceleration.
         angle_far_unnorm = self._get_angle_to(pos, theta, far_target)
         should_slow = abs(angle_far_unnorm) > 45.0 or abs(angle_unnorm) > 5.0
-        target_speed = 4 if should_slow else 7.0
+        target_speed = self._default_slow_target_speed if should_slow else self._default_target_speed
 
         brake = self._should_brake()
         target_speed = target_speed if not brake else 0.0
+
+        self._target_speed = target_speed
 
         delta = np.clip(target_speed - speed, 0.0, 0.25)
         throttle = self._speed_controller.step(delta)
@@ -113,9 +122,10 @@ class AutoPilot(MapAgent):
             self._init()
         #     self._world.set_weather(WEATHERS[int(os.environ['WEATHER_INDEX'])])
 
-        # if self.step % 100 == 0:
-        #     index = (self.step // 100) % len(WEATHERS)
-        #     self._world.set_weather(WEATHERS[index])
+        # 100 -> 50 since 20Hz -> 10Hz
+        if self.step % 50 == 0 and self.args.changing_weather:
+            index = np.random.randint(0, len(WEATHERS))
+            self._world.set_weather(WEATHERS[index])
 
         data = self.tick(input_data)
         rgb_with_car = cv2.cvtColor(input_data['rgb_with_car'][1][:, :, :3], cv2.COLOR_BGR2RGB)
@@ -128,6 +138,8 @@ class AutoPilot(MapAgent):
 
         near_node, near_command = self._waypoint_planner.run_step(gps)
         far_node, far_command = self._command_planner.run_step(gps)
+
+
 
         _topdown = Image.fromarray(COLOR[CONVERTER[topdown]])
         _rgb = Image.fromarray(rgb)
@@ -156,7 +168,7 @@ class AutoPilot(MapAgent):
         control.brake = float(brake)
 
         # we only gether info every 2 frames for faster processing speed
-        if self.step % 2 == 0:
+        if self.step % 1 == 0:
             self.gather_info()
 
 
@@ -203,26 +215,184 @@ class AutoPilot(MapAgent):
 
         speed = tick_data['speed']
 
-        center = self.save_path / 'rgb' / ('%04d.png' % frame)
-        left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
-        right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
+        center = os.path.join('rgb', ('%06d.png' % frame))
+        left = os.path.join('rgb_left', ('%06d.png' % frame))
+        right = os.path.join('rgb_right', ('%06d.png' % frame))
 
 
 
-        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
-        rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
+        topdown = os.path.join('topdown', ('%06d.png' % frame))
+        rgb_with_car = os.path.join('rgb_with_car', ('%06d.png' % frame))
 
         data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv').open("a") as f_out:
             f_out.write(data_row+'\n')
 
-        Image.fromarray(tick_data['rgb']).save(center)
-        Image.fromarray(tick_data['rgb_left']).save(left)
-        Image.fromarray(tick_data['rgb_right']).save(right)
+
+        Image.fromarray(tick_data['rgb']).save(self.save_path / center)
+        Image.fromarray(tick_data['rgb_left']).save(self.save_path / left)
+        Image.fromarray(tick_data['rgb_right']).save(self.save_path / right)
         # modification
         # Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
-        Image.fromarray(tick_data['topdown']).save(topdown)
-        Image.fromarray(tick_data['rgb_with_car']).save(rgb_with_car)
+        Image.fromarray(tick_data['topdown']).save(self.save_path / topdown)
+        Image.fromarray(tick_data['rgb_with_car']).save(self.save_path / rgb_with_car)
+
+
+        ########################################################################
+        # log necessary info for action-based
+        if self.args.save_action_based_measurements:
+            from affordances import get_driving_affordances
+
+            self._pedestrian_forbidden_distance = 10.0
+            self._pedestrian_max_detected_distance = 50.0
+            self._vehicle_forbidden_distance = 10.0
+            self._vehicle_max_detected_distance = 50.0
+            self._tl_forbidden_distance = 10.0
+            self._tl_max_detected_distance = 50.0
+            self._speed_detected_distance = 10.0
+
+            current_affordances = get_driving_affordances(self, self._pedestrian_forbidden_distance, self._pedestrian_max_detected_distance, self._vehicle_forbidden_distance, self._vehicle_max_detected_distance, self._tl_forbidden_distance, self._tl_max_detected_distance, self._angle, self._default_target_speed, self._target_speed, self._speed_detected_distance, angle=True)
+
+            is_vehicle_hazard = current_affordances['is_vehicle_hazard']
+            is_red_tl_hazard = current_affordances['is_red_tl_hazard']
+            is_pedestrian_hazard = current_affordances['is_pedestrian_hazard']
+            forward_speed = current_affordances['forward_speed']
+            relative_angle = current_affordances['relative_angle']
+            target_speed = current_affordances['target_speed']
+            closest_pedestrian_distance = current_affordances['closest_pedestrian_distance']
+            closest_vehicle_distance = current_affordances['closest_vehicle_distance']
+            closest_red_tl_distance = current_affordances['closest_red_tl_distance']
+
+
+
+            log_folder = str(self.save_path / 'affordance_measurements')
+            if not os.path.exists(log_folder):
+                os.mkdir(log_folder)
+            log_path = os.path.join(log_folder, f'{self.step:06}.json')
+
+
+            ego_transform = self._vehicle.get_transform()
+            ego_location = ego_transform.location
+            ego_rotation = ego_transform.rotation
+            ego_velocity = self._vehicle.get_velocity()
+
+            # relative_angle
+            # lane_center_waypoint = self._map.get_waypoint(ego_location, lane_type=carla.LaneType.Any)
+            # lane_center_transform = lane_center_waypoint.transform
+            #
+            #
+            # relative_angle = np.abs(lane_center_transform.rotation.yaw - ego_rotation.yaw)
+            # if lane_center_transform.rotation.yaw - ego_rotation.yaw > 180:
+            #     relative_angle = np.abs(lane_center_transform.rotation.yaw - ego_rotation.yaw - 360)
+            # elif ego_rotation.yaw - lane_center_transform.rotation.yaw > 180:
+            #     relative_angle = np.abs(lane_center_transform.rotation.yaw - ego_rotation.yaw + 360)
+            #
+            # relative_angle = np.radians(relative_angle)
+
+
+            # vehicle, pedestrian, traffic light
+            # actors = self._world.get_actors()
+            # vehicle_list = actors.filter('*vehicle*')
+            # pedestrian_list = actors.filter('walker*')
+            # tls = actors.filter('*traffic_light*')
+            #
+            # ego_bbox = get_bbox(self._vehicle)
+            #
+            # closest_vehicle_distance = 50
+            # for i, vehicle in enumerate(vehicle_list):
+            #     if vehicle.id == self._vehicle.id:
+            #         continue
+            #     other_bbox = get_bbox(vehicle)
+            #     for other_b in other_bbox:
+            #         for ego_b in ego_bbox:
+            #             d = norm_2d(other_b, ego_b)
+            #             # print('vehicle', i, 'd', d)
+            #             closest_vehicle_distance = np.min([closest_vehicle_distance, d])
+            #
+            # closest_pedestrian_distance = 50
+            # for i, pedestrian in enumerate(pedestrian_list):
+            #     other_bbox = get_bbox(pedestrian)
+            #     for other_b in other_bbox:
+            #         for ego_b in ego_bbox:
+            #             d = norm_2d(other_b, ego_b)
+            #             # print('pedestrian', i, 'd', d)
+            #             closest_pedestrian_distance = np.min([closest_pedestrian_distance, d])
+            #
+            # closest_red_tl_distance = 50
+            # is_red_tl_hazard = False
+            # for tl in tls:
+            #     if tl.state == carla.TrafficLightState.Red:
+            #         tl_location = tl.get_transform().location
+            #         d = norm_2d(ego_location, tl_location)
+            #         closest_red_tl_distance = np.min([closest_red_tl_distance, d])
+            #
+            #         if d < 10:
+            #             affecting = self._vehicle.get_traffic_light()
+            #             if affecting and tl.id == affecting.id:
+            #                 is_red_tl_hazard = True
+            #
+            # is_pedestrian_hazard = bool(closest_pedestrian_distance < 10)
+            # is_vehicle_hazard = bool(closest_vehicle_distance < 10)
+
+            brake_noise = 0.0
+            throttle_noise = 0.0 # 1.0 -> 0.0
+            steer_noise = 0.0 # NaN -> 0.0
+
+            # class RoadOption
+            # VOID = -1
+            # LEFT = 1
+            # RIGHT = 2
+            # STRAIGHT = 3
+            # LANEFOLLOW = 4
+            # CHANGELANELEFT = 5
+            # CHANGELANERIGHT = 6
+            map_roadoption_to_action_based_roadoption = {-1:2, 1:3, 2:4, 3:5, 4:2, 5:2, 6:2}
+            # print('\n far_command', far_command)
+            # save info for action-based rep
+            json_log_data = {
+                "brake": float(brake),
+                "closest_red_tl_distance": closest_red_tl_distance,
+                "throttle": throttle,
+                "directions": float(map_roadoption_to_action_based_roadoption[far_command.value]),
+                "brake_noise": brake_noise,
+                "is_red_tl_hazard": is_red_tl_hazard,
+                "opponents": {},
+                "closest_pedestrian_distance": closest_pedestrian_distance,
+                "is_pedestrian_hazard": is_pedestrian_hazard,
+                "lane": {},
+                "is_vehicle_hazard": is_vehicle_hazard,
+                "throttle_noise": throttle_noise,
+                "ego_actor": {
+                    "velocity": [
+                        ego_velocity.x,
+                        ego_velocity.y,
+                        ego_velocity.z
+                    ],
+                    "position": [
+                        ego_location.x,
+                        ego_location.y,
+                        ego_location.z
+                    ],
+                    "orientation": [
+                        ego_rotation.roll,
+                        ego_rotation.pitch,
+                        ego_rotation.yaw
+                    ]
+                },
+                "hand_brake": False,
+                "steer_noise": steer_noise,
+                "reverse": False,
+                "relative_angle": relative_angle,
+                "closest_vehicle_distance": closest_vehicle_distance,
+                "walkers": {},
+                "forward_speed": forward_speed,
+                "steer": steer,
+                "target_speed": target_speed
+            }
+
+            with open(log_path, 'w') as f_out:
+                json.dump(json_log_data, f_out, indent=4)
+
 
     def _should_brake(self):
         actors = self._world.get_actors()
@@ -258,7 +428,7 @@ class AutoPilot(MapAgent):
         p1 = _numpy(self._vehicle.get_location())
         v1 = 10.0 * _orientation(self._vehicle.get_transform().rotation.yaw)
 
-        self._draw_line(p1, v1, z+2.5, (0, 0, 255))
+        # self._draw_line(p1, v1, z+2.5, (0, 0, 255))
 
         for walker in walkers_list:
             v2_hat = _orientation(walker.get_transform().rotation.yaw)
@@ -270,7 +440,7 @@ class AutoPilot(MapAgent):
             p2 = -3.0 * v2_hat + _numpy(walker.get_location())
             v2 = 8.0 * v2_hat
 
-            self._draw_line(p2, v2, z+2.5)
+            # self._draw_line(p2, v2, z+2.5)
 
             collides, collision_point = get_collision(p1, v1, p2, v2)
 
@@ -288,7 +458,7 @@ class AutoPilot(MapAgent):
         v1_hat = o1
         v1 = s1 * v1_hat
 
-        self._draw_line(p1, v1, z+2.5, (255, 0, 0))
+        # self._draw_line(p1, v1, z+2.5, (255, 0, 0))
 
         for target_vehicle in vehicle_list:
             if target_vehicle.id == self._vehicle.id:
@@ -304,7 +474,7 @@ class AutoPilot(MapAgent):
             distance = np.linalg.norm(p2_p1)
             p2_p1_hat = p2_p1 / (distance + 1e-4)
 
-            self._draw_line(p2, v2, z+2.5, (255, 0, 0))
+            # self._draw_line(p2, v2, z+2.5, (255, 0, 0))
 
             angle_to_car = np.degrees(np.arccos(v1_hat.dot(p2_p1_hat)))
             angle_between_heading = np.degrees(np.arccos(o1.dot(o2)))

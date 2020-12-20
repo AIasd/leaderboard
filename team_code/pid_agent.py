@@ -151,15 +151,14 @@ class PIDAgent(MapAgent):
 
         data = self.tick(input_data)
 
+        # visualization
         rgb_with_car = cv2.cvtColor(input_data['rgb_with_car'][1][:, :, :3], cv2.COLOR_BGR2RGB)
         data['rgb_with_car'] = rgb_with_car
 
         topdown = data['topdown']
         rgb = np.hstack((data['rgb_left'], data['rgb'], data['rgb_right']))
 
-        gps = self._get_position(data)
-
-
+        # gps = self._get_position(data)
         _topdown = Image.fromarray(COLOR[CONVERTER[topdown]])
         _rgb = Image.fromarray(rgb)
         _draw = ImageDraw.Draw(_topdown)
@@ -205,22 +204,33 @@ class PIDAgent(MapAgent):
         speed = tick_data['speed']
 
 
-        center = self.save_path / 'rgb' / ('%04d.png' % frame)
-        left = self.save_path / 'rgb_left' / ('%04d.png' % frame)
-        right = self.save_path / 'rgb_right' / ('%04d.png' % frame)
-        topdown = self.save_path / 'topdown' / ('%04d.png' % frame)
-        rgb_with_car = self.save_path / 'rgb_with_car' / ('%04d.png' % frame)
+        center = os.path.join('rgb', ('%04d.png' % frame))
+        left = os.path.join('rgb_left', ('%04d.png' % frame))
+        right = os.path.join('rgb_right', ('%04d.png' % frame))
+        topdown = os.path.join('topdown', ('%04d.png' % frame))
+        rgb_with_car = os.path.join('rgb_with_car', ('%04d.png' % frame))
 
         data_row = ','.join([str(i) for i in [frame, far_command, speed, steer, throttle, brake, str(center), str(left), str(right)]])
         with (self.save_path / 'measurements.csv').open("a") as f_out:
             f_out.write(data_row+'\n')
 
-        Image.fromarray(tick_data['rgb']).save(center)
-        Image.fromarray(tick_data['rgb_left']).save(left)
-        Image.fromarray(tick_data['rgb_right']).save(right)
+
+        Image.fromarray(tick_data['rgb']).save(self.save_path / center)
+        Image.fromarray(tick_data['rgb_left']).save(self.save_path / left)
+        Image.fromarray(tick_data['rgb_right']).save(self.save_path / right)
         # modification
-        Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(topdown)
-        Image.fromarray(tick_data['rgb_with_car']).save(rgb_with_car)
+        Image.fromarray(COLOR[CONVERTER[tick_data['topdown']]]).save(self.save_path / topdown)
+        Image.fromarray(tick_data['rgb_with_car']).save(self.save_path / rgb_with_car)
+
+
+        ########################################################################
+        # log necessary info for action-based
+
+
+
+
+
+
 
 
     def _draw_line(self, p, v, z, color=(255, 0, 0)):
@@ -232,20 +242,6 @@ class PIDAgent(MapAgent):
         color = carla.Color(*color)
 
         self._world.debug.draw_line(p1, p2, 0.25, color, 0.01)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

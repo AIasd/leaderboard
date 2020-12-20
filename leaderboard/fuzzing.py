@@ -265,14 +265,14 @@ class LeaderboardEvaluator(object):
 
 
 
-
         settings = self.world.get_settings()
         settings.fixed_delta_seconds = 1.0 / self.frame_rate
         settings.synchronous_mode = True
+
         self.world.apply_settings(settings)
 
+
         CarlaDataProvider.set_client(self.client)
-        CarlaDataProvider.set_world(self.world)
         CarlaDataProvider.set_world(self.world)
 
         spectator = CarlaDataProvider.get_world().get_spectator()
@@ -325,9 +325,11 @@ class LeaderboardEvaluator(object):
         '''
         for k, v in customized_data['customized_center_transforms'].items():
             if v[0] == 'waypoint_ratio':
-                ind = np.min([int(len(route)*v[1]), len(route)-1])
+                r = v[1] / 100
+                ind = np.min([int(len(route)*r), len(route)-1])
                 loc = route[ind][0].location
                 customized_data[k] = create_transform(loc.x, loc.y, 0, 0, 0, 0)
+                print('waypoint_ratio', loc.x, loc.y)
             elif v[0] == 'absolute_location':
                 customized_data[k] = create_transform(v[1], v[2], 0, 0, 0, 0)
             else:
@@ -356,7 +358,7 @@ class LeaderboardEvaluator(object):
 
             # addition
             # self.agent_instance.set_trajectory(config.trajectory)
-            self.agent_instance.set_deviations_path(args.deviations_folder)
+            self.agent_instance.set_args(args)
 
             config.agent = self.agent_instance
             self.sensors = [sensors_to_icons[sensor['type']] for sensor in self.agent_instance.sensors()]
@@ -460,7 +462,7 @@ class LeaderboardEvaluator(object):
         """
         Run the challenge mode
         """
-        route_indexer = RouteIndexer(args.routes, args.scenarios, args.repetitions)
+        route_indexer = RouteIndexer(args.routes, args.scenarios, args.repetitions, args.background_vehicles)
         if args.resume:
             route_indexer.resume(self.save_path)
             self.statistics_manager.resume(self.save_path)
