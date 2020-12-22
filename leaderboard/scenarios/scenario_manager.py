@@ -163,10 +163,11 @@ class ScenarioManager(object):
                     self._tick_scenario(timestamp)
                 # addition
                 if step == 0:
-                    f_out.write('x,y\n')
+                    f_out.write('x,y,yaw\n')
                 # if step % 10 == 0:
                 loc = self.ego_vehicles[0].get_location()
-                f_out.write(str(loc.x)+','+str(loc.y)+'\n')
+                ori = self.ego_vehicles[0].get_transform().rotation
+                f_out.write(str(loc.x)+','+str(loc.y)+','+str(ori.yaw)+'\n')
                 step += 1
 
 
