@@ -42,6 +42,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         self.offroad_d = 10000
         self.wronglane_d = 10000
         self.dev_dist = 0
+        self.d_angle_norm = 1
 
 
         # hop_resolution = 0.1
@@ -207,8 +208,8 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
 
     def gather_info(self, ego_control_and_speed_info=None):
-        if self.step % 1 == 0:
-            self.record_other_actor_info_for_causal_analysis(ego_control_and_speed_info)
+        # if self.step % 1 == 0:
+        #     self.record_other_actor_info_for_causal_analysis(ego_control_and_speed_info)
 
 
         ego_bbox = get_bbox(self._vehicle)
@@ -220,12 +221,14 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         pedestrian_list = actors.filter('*walker*')
 
         min_d = 10000
+        d_angle_norm = 1
         for i, vehicle in enumerate(vehicle_list):
             if vehicle.id == self._vehicle.id:
                 continue
 
-            d_angle_norm = angle_from_center_view_fov(vehicle, self._vehicle, fov=90)
-            if d_angle_norm == 0:
+            d_angle_norm_i = angle_from_center_view_fov(vehicle, self._vehicle, fov=90)
+            d_angle_norm = np.min([d_angle_norm, d_angle_norm_i])
+            if d_angle_norm_i == 0:
                 other_bbox = get_bbox(vehicle)
                 for other_b in other_bbox:
                     for ego_b in ego_bbox:
@@ -235,8 +238,9 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
 
         for i, pedestrian in enumerate(pedestrian_list):
-            d_angle_norm = angle_from_center_view_fov(pedestrian, self._vehicle, fov=90)
-            if d_angle_norm == 0:
+            d_angle_norm_i = angle_from_center_view_fov(pedestrian, self._vehicle, fov=90)
+            d_angle_norm = np.min([d_angle_norm, d_angle_norm_i])
+            if d_angle_norm_i == 0:
                 pedestrian_location = pedestrian.get_transform().location
                 for ego_b in ego_front_bbox:
                     d = norm_2d(pedestrian_location, ego_b)
@@ -250,19 +254,43 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                 f_out.write('min_d,'+str(self.min_d)+'\n')
 
 
+        if d_angle_norm < self.d_angle_norm:
+            self.d_angle_norm = d_angle_norm
+            with open(self.deviations_path, 'a') as f_out:
+                f_out.write('d_angle_norm,'+str(self.d_angle_norm)+'\n')
+
+
 
         angle_th = 120
 
         current_location = CarlaDataProvider.get_location(self._vehicle)
         current_transform = CarlaDataProvider.get_transform(self._vehicle)
         current_waypoint = self._map.get_waypoint(current_location, project_to_road=False, lane_type=carla.LaneType.Any)
+        ego_forward = current_transform.get_forward_vector()
+        ego_forward = np.array([ego_forward.x, ego_forward.y])
+        ego_forward /= np.linalg.norm(ego_forward)
+        ego_right = current_transform.get_right_vector()
+        ego_right = np.array([ego_right.x, ego_right.y])
+        ego_right /= np.linalg.norm(ego_right)
+
 
         lane_center_waypoint = self._map.get_waypoint(current_location, lane_type=carla.LaneType.Any)
         lane_center_transform = lane_center_waypoint.transform
         lane_center_location = lane_center_transform.location
+        lane_forward = lane_center_transform.get_forward_vector()
+        lane_forward = np.array([lane_forward.x, lane_forward.y])
+        lane_forward /= np.linalg.norm(lane_forward)
+        lane_right = current_transform.get_right_vector()
+        lane_right = np.array([lane_right.x, lane_right.y])
+        lane_right /= np.linalg.norm(lane_right)
+
 
 
         dev_dist = current_location.distance(lane_center_location)
+        # normalized to [0, 1]. 0 - same direction, 1 - opposite direction
+        dev_angle = math.acos(np.dot(ego_forward, lane_forward)) / np.pi
+        # smoothing and integrate
+        dev_dist *= (dev_angle + 0.5)
 
         if dev_dist > self.dev_dist:
             self.dev_dist = dev_dist
@@ -271,77 +299,51 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
 
 
-
         # print(current_location, current_waypoint.lane_type, current_waypoint.is_junction)
         # print(lane_center_location, lane_center_waypoint.lane_type, lane_center_waypoint.is_junction)
 
+        def get_d(coeff, dir, dir_label):
 
-        if current_waypoint and not current_waypoint.is_junction:
-
-            ego_forward = current_transform.get_forward_vector()
-            lane_forward = lane_center_transform.get_forward_vector()
-
-
-            dev_angle = 2 * get_angle(lane_forward.x, lane_forward.y, ego_forward.x, ego_forward.y) / np.pi
-            # print(lane_forward, ego_forward, dev_angle)
-            if dev_angle > 1:
-                dev_angle = 2 - dev_angle
-            elif dev_angle < -1:
-                dev_angle = (-1) * (2 + dev_angle)
-
-            # carla map has opposite y axis
-            dev_angle *= -1
-
-
-
-
-            def get_d(coeff, dev_angle):
-                if coeff < 0:
-                    dev_angle = 1 - dev_angle
-                elif coeff > 0:
-                    dev_angle = dev_angle + 1
-
-
-                # print(dev_angle, coeff)
-
-                n = 1
-                rv = lane_center_waypoint.transform.get_right_vector()
-                new_loc = carla.Location(lane_center_location.x + n*coeff*rv.x, lane_center_location.y + n*coeff*rv.y, 0)
-
+            n = 1
+            while n*coeff < 7:
+                new_loc = carla.Location(current_location.x + n*coeff*dir[0], current_location.y + n*coeff*dir[1], 0)
+                # print(coeff, dir, dir_label)
+                # print('current_location, dir, new_loc', current_location, dir, new_loc)
                 new_wp = self._map.get_waypoint(new_loc,project_to_road=False, lane_type=carla.LaneType.Any)
 
-                while new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < angle_th:
-                    prev_loc = new_loc
+                if not (new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < angle_th):
+                    break
+                else:
                     n += 1
-                    new_loc = carla.Location(lane_center_location.x + n*coeff*rv.x, lane_center_location.y + n*coeff*rv.y, 0)
-                    new_wp = self._map.get_waypoint(new_loc,project_to_road=False, lane_type=carla.LaneType.Any)
+                # if new_wp:
+                #     print(n, new_wp.transform.rotation.yaw)
+
+            d = new_loc.distance(current_location)
+            # print(d, new_loc, current_location)
+
+
+            with open(self.deviations_path, 'a') as f_out:
+                if new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional]:
+                    # print(dir_label, 'wronglane_d', d)
+                    if d < self.wronglane_d:
+                        self.wronglane_d = d
+                        f_out.write('wronglane_d,'+str(self.wronglane_d)+'\n')
+                else:
+                    # if not new_wp:
+                    #     s = 'None wp'
+                    # else:
+                    #     s = new_wp.lane_type
+                    # print(dir_label, 'offroad_d', d, s, coeff)
                     # if new_wp:
-                    #     print(n, new_wp.transform.rotation.yaw)
+                        # print(dir_label, 'lanetype', new_wp.lane_type)
+                    if d < self.offroad_d:
+                        self.offroad_d = d
+                        f_out.write('offroad_d,'+str(self.offroad_d)+'\n')
 
-                d = new_loc.distance(current_location)
-                d *= dev_angle
-                # print(d, new_loc, current_location)
 
 
-                with open(self.deviations_path, 'a') as f_out:
-                    if (not new_wp) or (new_wp.lane_type not in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional]):
-                        if not new_wp:
-                            s = 'None wp'
-                        else:
-                            s = new_wp.lane_type
-                        # print('offroad_d', d, s, coeff)
-                        # if new_wp:
-                        #     print('lanetype', new_wp.lane_type)
-                        if d < self.offroad_d:
-                            self.offroad_d = d
-                            with open(self.deviations_path, 'a') as f_out:
-                                f_out.write('offroad_d,'+str(self.offroad_d)+'\n')
-                    else:
-                        with open(self.deviations_path, 'a') as f_out:
-                            # print('wronglane_d', d, coeff)
-                            if d < self.wronglane_d:
-                                self.wronglane_d = d
-                                f_out.write('wronglane_d,'+str(self.wronglane_d)+'\n')
 
-            get_d(-0.2, dev_angle)
-            get_d(0.2, dev_angle)
+        if current_waypoint and not current_waypoint.is_junction:
+            get_d(-0.1, lane_right, 'left')
+            get_d(0.1, lane_right, 'right')
+        get_d(0.1, ego_right, 'forward')
