@@ -308,10 +308,12 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
             while n*coeff < 7:
                 new_loc = carla.Location(current_location.x + n*coeff*dir[0], current_location.y + n*coeff*dir[1], 0)
                 # print(coeff, dir, dir_label)
-                # print('current_location, dir, new_loc', current_location, dir, new_loc)
+                # print(dir_label, 'current_location, dir, new_loc', current_location, dir, new_loc)
                 new_wp = self._map.get_waypoint(new_loc,project_to_road=False, lane_type=carla.LaneType.Any)
 
-                if not (new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw - lane_center_waypoint.transform.rotation.yaw) < angle_th):
+                if not (new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional] and np.abs(new_wp.transform.rotation.yaw%360 - lane_center_waypoint.transform.rotation.yaw%360) < angle_th):
+                    # if new_wp and new_wp.lane_type in [carla.LaneType.Driving, carla.LaneType.Parking, carla.LaneType.Bidirectional]:
+                    #     print('new_wp.transform.rotation.yaw, lane_center_waypoint.transform.rotation.yaw', new_wp.transform.rotation.yaw, lane_center_waypoint.transform.rotation.yaw)
                     break
                 else:
                     n += 1
@@ -328,6 +330,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                     if d < self.wronglane_d:
                         self.wronglane_d = d
                         f_out.write('wronglane_d,'+str(self.wronglane_d)+'\n')
+                        # print(dir_label, 'current_location, dir, new_loc', current_location, dir, new_loc, 'wronglane_d,'+str(self.wronglane_d)+'\n')
                 else:
                     # if not new_wp:
                     #     s = 'None wp'
@@ -339,6 +342,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                     if d < self.offroad_d:
                         self.offroad_d = d
                         f_out.write('offroad_d,'+str(self.offroad_d)+'\n')
+                        # print(dir_label, 'current_location, dir, new_loc', current_location, dir, new_loc, 'offroad_d,'+str(self.offroad_d)+'\n')
 
 
 
@@ -346,4 +350,6 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         if current_waypoint and not current_waypoint.is_junction:
             get_d(-0.1, lane_right, 'left')
             get_d(0.1, lane_right, 'right')
-        get_d(0.1, ego_right, 'forward')
+        get_d(-0.1, ego_right, 'ego_left')
+        get_d(0.1, ego_right, 'ego_right')
+        get_d(0.1, ego_forward, 'ego_forward')
