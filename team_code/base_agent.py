@@ -20,7 +20,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         self.track = autonomous_agent.Track.SENSORS
         self.config_path = path_to_conf_file
         self.step = -1
-        self.record_every_n_step = 20
+        self.record_every_n_step = 2000
         self.wall_start = time.time()
         self.initialized = False
 
