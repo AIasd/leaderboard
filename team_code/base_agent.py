@@ -154,6 +154,8 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
     def set_args(self, args):
         self.deviations_path = os.path.join(args.deviations_folder, 'deviations.txt')
         self.args = args
+        # print('\n'*10, 'self.args.record_every_n_step', self.args.record_every_n_step, '\n'*10)
+        self.record_every_n_step = self.args.record_every_n_step
 
 
     def record_other_actor_info_for_causal_analysis(self, ego_control_and_speed_info):
