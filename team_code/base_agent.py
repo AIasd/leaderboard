@@ -290,7 +290,9 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
         dev_dist = current_location.distance(lane_center_location)
         # normalized to [0, 1]. 0 - same direction, 1 - opposite direction
-        dev_angle = math.acos(np.dot(ego_forward, lane_forward)) / np.pi
+
+        # print('ego_forward, lane_forward, np.dot(ego_forward, lane_forward)', ego_forward, lane_forward, np.dot(ego_forward, lane_forward))
+        dev_angle = math.acos(np.clip(np.dot(ego_forward, lane_forward), -1, 1)) / np.pi
         # smoothing and integrate
         dev_dist *= (dev_angle + 0.5)
 
