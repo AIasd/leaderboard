@@ -115,6 +115,12 @@ class StatisticsManager(object):
         else:
             self._registry_route_records.append(route_record)
 
+    def set_scenario(self, scenario):
+        """
+        Sets the scenario from which the statistics willb e taken
+        """
+        self._master_scenario = scenario
+
     def compute_route_statistics(self, config, duration_time_system=-1, duration_time_game=-1):
         """
         Compute the current statistics by evaluating all relevant scenario criteria
@@ -189,6 +195,7 @@ class StatisticsManager(object):
                                 else:
                                     score_route = 0
                                     print('no event')
+                        # addition:
                         elif event.get_type() == TrafficEventType.ON_SIDEWALK_INFRACTION:
                             print('on_sidewalk')
                             route_record.infractions['on_sidewalk'].append(event.get_message())
@@ -214,6 +221,8 @@ class StatisticsManager(object):
             route_record.status = 'Completed'
         else:
             route_record.status = 'Failed'
+            if failure:
+                route_record.status += ' - ' + failure
 
         return route_record
 
@@ -273,7 +282,7 @@ class StatisticsManager(object):
         save_dict(endpoint, data)
 
     @staticmethod
-    def save_global_record(route_record, sensors, endpoint):
+    def save_global_record(route_record, sensors, total_routes, endpoint):
         data = fetch_dict(endpoint)
         if not data:
             data = create_default_json_msg()
@@ -319,8 +328,51 @@ class StatisticsManager(object):
                           'Collisions Invisible'
                           ]
 
-        data['sensors'] = sensors
 
+
+        entry_status = "Finished"
+        eligible = True
+
+        route_records = data["_checkpoint"]["records"]
+        progress = data["_checkpoint"]["progress"]
+
+        if progress[1] != total_routes:
+            raise Exception('Critical error with the route registry.')
+
+        if len(route_records) != total_routes or progress[0] != progress[1]:
+            entry_status = "Finished with missing data"
+            eligible = False
+        else:
+            for route in route_records:
+                route_status = route["status"]
+                if "Agent" in route_status:
+                    entry_status = "Finished with agent errors"
+                    break
+
+        data['entry_status'] = entry_status
+        data['eligible'] = eligible
+
+        save_dict(endpoint, data)
+
+    @staticmethod
+    def save_sensors(sensors, endpoint):
+        data = fetch_dict(endpoint)
+        if not data:
+            data = create_default_json_msg()
+
+        if not data['sensors']:
+            data['sensors'] = sensors
+
+            save_dict(endpoint, data)
+
+    @staticmethod
+    def save_entry_status(entry_status, eligible, endpoint):
+        data = fetch_dict(endpoint)
+        if not data:
+            data = create_default_json_msg()
+
+        data['entry_status'] = entry_status
+        data['eligible'] = eligible
         save_dict(endpoint, data)
 
     @staticmethod

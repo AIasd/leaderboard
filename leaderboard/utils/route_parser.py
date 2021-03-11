@@ -96,7 +96,7 @@ class RouteParser(object):
         route_weather = route.find("weather")
         if route_weather is None:
 
-            weather = carla.WeatherParameters(sun_altitude_angle = 70)
+            weather = carla.WeatherParameters(sun_altitude_angle=70, cloudiness=30)
 
         else:
             weather = carla.WeatherParameters()
@@ -120,6 +120,8 @@ class RouteParser(object):
                     weather.fog_distance = float(weather_attrib.attrib['fog_distance'])
                 if 'fog_density' in weather_attrib.attrib:
                     weather.fog_density = float(weather_attrib.attrib['fog_density'])
+                if 'fog_falloff' in weather_attrib.attrib:
+                    weather.fog_falloff = float(weather_attrib.attrib['fog_falloff'])
 
         return weather
 

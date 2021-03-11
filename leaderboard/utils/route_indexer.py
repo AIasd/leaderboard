@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from dictor import dictor
 
+import copy
+
 from srunner.scenarioconfigs.route_scenario_configuration import RouteScenarioConfiguration
 
 
@@ -14,7 +16,7 @@ class RouteIndexer():
         self._scenarios_file = scenarios_file
         self._repetitions = repetitions
         self._configs_dict = OrderedDict()
-        self._configs_list = None
+        self._configs_list = []
         self.routes_length = []
         self._index = 0
 
@@ -49,7 +51,11 @@ class RouteIndexer():
         if data:
             checkpoint_dict = dictor(data, '_checkpoint')
             if checkpoint_dict and 'progress' in checkpoint_dict:
-                current_route, total_routes = checkpoint_dict['progress']
+                progress = checkpoint_dict['progress']
+                if not progress:
+                    current_route = 0
+                else:
+                    current_route, total_routes = progress
                 if current_route <= self.total:
                     self._index = current_route
                 else:

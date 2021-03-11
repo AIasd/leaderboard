@@ -182,7 +182,7 @@ class RouteScenario(BasicScenario):
 
     category = "RouteScenario"
 
-    def __init__(self, world, config, debug_mode=False, criteria_enable=True, customized_data=None):
+    def __init__(self, world, config, debug_mode=0, criteria_enable=True, customized_data=None):
         """
         Setup all relevant parameters and create scenarios along route
         """
@@ -226,10 +226,9 @@ class RouteScenario(BasicScenario):
 
 
 
-
+        # addition?
         # prepare route's trajectory (interpolate and add the GPS route)
         gps_route, route = interpolate_trajectory(world, config.trajectory)
-
         if self.customized_data:
             sample_factor = self.customized_data['sample_factor']
             config.agent.set_global_plan(gps_route, route, sample_factor)
@@ -238,16 +237,12 @@ class RouteScenario(BasicScenario):
 
         if self.customized_data:
             perturb_route(config.agent._global_plan_world_coord, self.customized_data['ego_car_waypoints_perturbation'])
-
-
-
         # visualize_route(config.agent._global_plan_world_coord)
-
-
         # recalculate gps to accomodate the perturbation
         lat_ref, lon_ref = _get_latlon_ref(world)
         config.agent._global_plan = location_route_to_gps(route, lat_ref, lon_ref)
         self.route = config.agent._global_plan_world_coord
+
 
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)

@@ -44,7 +44,7 @@ class DummyAgent(AutonomousAgent):
             {'type': 'sensor.lidar.ray_cast', 'x': 0.7, 'y': 0.0, 'z': 1.60, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0,
              'id': 'LIDAR'}
 
-
+        ]
         """
         sensors = [{'type': 'sensor.camera.rgb', 'x': 0.7, 'y': 0.0, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
                     'width': 800, 'height': 600, 'fov': 100, 'id': 'Center'},

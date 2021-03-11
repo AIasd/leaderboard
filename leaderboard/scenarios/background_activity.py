@@ -8,7 +8,7 @@
 Scenario spawning elements to make the town dynamic and interesting
 """
 
-import py_trees
+import carla
 
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenarios.basic_scenario import BasicScenario
@@ -64,17 +64,19 @@ class BackgroundActivity(BasicScenario):
             amount = self.town_amount[town_name]
         else:
             amount = 0
-        for actor in config.other_actors:
-            new_actors = CarlaDataProvider.request_new_batch_actors('vehicle.*',
-                                                                 amount,
-                                                                 carla.Transform(),
-                                                                 autopilot=True,
-                                                                 rolename='background')
-            if new_actors is None:
-                raise Exception("Error: Unable to add the background activity, all spawn points were occupied")
 
-            for _actor in new_actors:
-                self.other_actors.append(_actor)
+        new_actors = CarlaDataProvider.request_new_batch_actors('vehicle.*',
+                                                                amount,
+                                                                carla.Transform(),
+                                                                autopilot=True,
+                                                                random_location=True,
+                                                                rolename='background')
+
+        if new_actors is None:
+            raise Exception("Error: Unable to add the background activity, all spawn points were occupied")
+
+        for _actor in new_actors:
+            self.other_actors.append(_actor)
 
     def _create_behavior(self):
         """
