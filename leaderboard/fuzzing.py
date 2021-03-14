@@ -421,7 +421,18 @@ class LeaderboardEvaluator(object):
         try:
             self._agent_watchdog.start()
             agent_class_name = getattr(self.module_agent, 'get_entry_point')()
-            self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+            if self.ego_car_model == 'rl':
+                frin customized_utils import get_rl_agent_args
+                rl_agent_args = get_rl_agent_args()
+                rl_agent_args.path_folder_model = args.agent_config
+                rl_agent_args.front_camera_width = 256
+                rl_agent_args.front_camera_height = 144
+                rl_agent_args.front_camera_fov = 100
+                rl_agent_args.crop_sky = True
+                rl_agent_args.render = True
+                self.agent_instance = getattr(self.module_agent, agent_class_name)(rl_agent_args)
+            else:
+                self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
             # addition: pass args into the agent instance
             self.agent_instance.set_args(args)
             config.agent = self.agent_instance
@@ -736,7 +747,7 @@ def main():
         if i == 0:
             launch_server = True
         else:
-            launch_server = True
+            launch_server = False
         run_simulation(customized_data, launch_server, episode_max_time, route_path, route_str, scenario_file, ego_car_model, background_vehicles=True, changing_weather=True, save_folder=save_folder, using_customized_route_and_scenario=False, record_every_n_step=record_every_n_step)
 
 
