@@ -15,12 +15,10 @@ import signal
 import sys
 import time
 
-
 import py_trees
 import carla
 
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
-from srunner.scenariomanager.result_writer import ResultOutputProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
 from srunner.scenariomanager.scenarioatomics.atomic_behaviors import UpdateAllActorControls
@@ -67,7 +65,6 @@ class ScenarioManager(object):
         self._sync_mode = sync_mode
         self._running = False
         self._timestamp_last_run = 0.0
-
         self._timeout = float(timeout)
 
         # Used to detect if the simulation is down
@@ -99,7 +96,6 @@ class ScenarioManager(object):
         """
         self._running = False
 
-
     def cleanup(self):
         """
         Reset all parameters
@@ -115,9 +111,9 @@ class ScenarioManager(object):
         """
         Load a new scenario
         """
+
         GameTime.restart()
         self._agent = AgentWrapper(agent)
-
         self.scenario_class = scenario
         self.scenario = scenario.scenario
         self.scenario_tree = self.scenario.scenario_tree
@@ -125,14 +121,10 @@ class ScenarioManager(object):
         self.other_actors = scenario.other_actors
         self.repetition_number = rep_number
 
-        # modification registration now moves to carla_data_provider
-        # CarlaDataProvider.register_actors(self.ego_vehicles)
-        # CarlaDataProvider.register_actors(self.other_actors)
         # To print the scenario tree uncomment the next line
         # py_trees.display.render_dot_tree(self.scenario_tree)
 
-        if self._agent is not None:
-            self._agent.setup_sensors(self.ego_vehicles[0], self._debug_mode)
+        self._agent.setup_sensors(self.ego_vehicles[0], self._debug_mode)
 
     def run_scenario(self):
         """
@@ -226,7 +218,6 @@ class ScenarioManager(object):
             if self.scenario_tree.status != py_trees.common.Status.RUNNING:
                 self._running = False
 
-
             spectator = CarlaDataProvider.get_world().get_spectator()
             ego_trans = self.ego_vehicles[0].get_transform()
             spectator.set_transform(carla.Transform(ego_trans.location + carla.Location(z=50),
@@ -246,7 +237,6 @@ class ScenarioManager(object):
         """
         This function triggers a proper termination of a scenario
         """
-
         self._watchdog.stop()
 
         self.end_system_time = time.time()
@@ -270,3 +260,12 @@ class ScenarioManager(object):
         Analyzes and prints the results of the route
         """
         global_result = '\033[92m'+'SUCCESS'+'\033[0m'
+
+        for criterion in self.scenario.get_criteria():
+            if criterion.test_status != "SUCCESS":
+                global_result = '\033[91m'+'FAILURE'+'\033[0m'
+
+        if self.scenario.timeout_node.timeout:
+            global_result = '\033[91m'+'FAILURE'+'\033[0m'
+
+        ResultOutputProvider(self, global_result)

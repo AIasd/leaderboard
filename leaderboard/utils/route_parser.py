@@ -59,7 +59,6 @@ class RouteParser(object):
         for route in tree.iter("route"):
 
             route_id = route.attrib['id']
-
             if single_route and route_id != single_route:
                 continue
 
@@ -75,7 +74,7 @@ class RouteParser(object):
                                                     y=float(waypoint.attrib['y']),
                                                     z=float(waypoint.attrib['z'])))
 
-                # Waypoints is basically a list of XML nodes
+            new_config.trajectory = waypoint_list
 
             new_config.trajectory = waypoint_list
 
@@ -314,16 +313,15 @@ class RouteParser(object):
                             other_vehicles = event['other_actors']
                         else:
                             other_vehicles = None
-
-                        scenario_subtype = RouteParser.get_scenario_type(scenario_name, match_position, trajectory)
-
+                        scenario_subtype = RouteParser.get_scenario_type(scenario_name, match_position,
+                                                                         trajectory)
                         if scenario_subtype is None:
                             continue
                         scenario_description = {
                             'name': scenario_name,
                             'other_actors': other_vehicles,
                             'trigger_position': waypoint,
-                            'scenario_type': scenario_subtype,  # some scenarios have route dependent configs
+                            'scenario_type': scenario_subtype, # some scenarios have route dependent configurations
                         }
 
                         trigger_id = RouteParser.check_trigger_position(waypoint, existent_triggers)

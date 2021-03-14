@@ -30,6 +30,7 @@ import logging
 
 import carla
 import signal
+
 from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
@@ -206,9 +207,6 @@ class LeaderboardEvaluator(object):
         elif self.manager:
             self.manager.signal_handler(signum, frame)
 
-
-
-
     def __del__(self):
         """
         Cleanup and delete actors, ScenarioManager and CARLA world
@@ -328,24 +326,26 @@ class LeaderboardEvaluator(object):
                             "This scenario requires to use map {}".format(town))
 
     def _register_statistics(self, config, checkpoint, entry_status, crash_message=""):
-            """
-            Computes and saved the simulation statistics
-            """
-            # register statistics
-            current_stats_record = self.statistics_manager.compute_route_statistics(
-                config,
-                self.manager.scenario_duration_system,
-                self.manager.scenario_duration_game,
-                crash_message
-            )
+        """
+        Computes and saved the simulation statistics
+        """
+        # register statistics
+        current_stats_record = self.statistics_manager.compute_route_statistics(
+            config,
+            self.manager.scenario_duration_system,
+            self.manager.scenario_duration_game,
+            crash_message
+        )
 
-            print("\033[1m> Registering the route statistics\033[0m")
-            self.statistics_manager.save_record(current_stats_record, config.index, self.save_path)
-            self.statistics_manager.save_entry_status(entry_status, False, checkpoint)
+        print("\033[1m> Registering the route statistics\033[0m")
+        self.statistics_manager.save_record(current_stats_record, config.index, checkpoint)
+        self.statistics_manager.save_entry_status(entry_status, False, checkpoint)
+
 
     def _load_and_run_scenario(self, args, config, customized_data):
         """
         Load and run the scenario given by config.
+
         Depending on what code fails, the simulation will either stop the route and
         continue from the next one, or report a crash and stop.
         """
@@ -376,7 +376,7 @@ class LeaderboardEvaluator(object):
             self.agent_instance.set_deviations_path(args.deviations_folder)
             config.agent = self.agent_instance
 
-                        # Check and store the sensors
+            # Check and store the sensors
             if not self.sensors:
                 self.sensors = self.agent_instance.sensors()
                 track = self.agent_instance.track
@@ -464,10 +464,8 @@ class LeaderboardEvaluator(object):
             friction_bp.set_attribute('extent_y', str(extent.y))
             friction_bp.set_attribute('extent_z', str(extent.z))
 
-            # Spawn Trigger Friction
-            transform = carla.Transform()
-            transform.location = carla.Location(-10000.0, -10000.0, 0.0)
-            self.world.spawn_actor(friction_bp, transform)
+            if args.record:
+                self.client.stop_recorder()
 
         # night mode
         if config.weather.sun_altitude_angle < 0.0:
@@ -479,6 +477,9 @@ class LeaderboardEvaluator(object):
             for vehicle in vehicle_list:
                 vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
 
+        print("\033[1m> Running the route\033[0m")
+
+        # Run the scenario
         try:
 
             print('start to run scenario')
@@ -503,7 +504,6 @@ class LeaderboardEvaluator(object):
         # Stop the scenario
         try:
             print("\033[1m> Stopping the route\033[0m")
-
             self.manager.stop_scenario()
             self._register_statistics(config, args.checkpoint, entry_status, crash_message)
 

@@ -27,9 +27,10 @@ class RouteIndexer():
         self.total = self.n_routes*self._repetitions
 
         for i, config in enumerate(route_configurations):
-            for repetition in range(self._repetitions):
+            for repetition in range(repetitions):
                 config.index = i * self._repetitions + repetition
-                self._configs_dict['{}.{}'.format(config.name, repetition)] = config
+                config.repetition_index = repetition
+                self._configs_dict['{}.{}'.format(config.name, repetition)] = copy.copy(config)
 
         self._configs_list = list(self._configs_dict.items())
 

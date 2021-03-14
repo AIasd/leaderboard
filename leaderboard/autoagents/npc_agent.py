@@ -51,7 +51,6 @@ class NpcAgent(AutonomousAgent):
 
             {'type': 'sensor.lidar.ray_cast', 'x': 0.7, 'y': 0.0, 'z': 1.60, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0,
              'id': 'LIDAR'}
-
         ]
         """
 

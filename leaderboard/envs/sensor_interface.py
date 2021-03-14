@@ -12,6 +12,7 @@ import carla
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 
+
 def threaded(fn):
     def wrapper(*args, **kwargs):
         thread = Thread(target=fn, args=args, kwargs=kwargs)
@@ -40,7 +41,6 @@ class SensorReceivedNoData(Exception):
         super(SensorReceivedNoData, self).__init__(message)
 
 
-
 class GenericMeasurement(object):
     def __init__(self, data, frame):
         self.data = data
@@ -52,7 +52,6 @@ class BaseReader(object):
         self._vehicle = vehicle
         self._reading_frequency = reading_frequency
         self._callback = None
-
         self._run_ps = True
         self.run()
 
@@ -206,6 +205,7 @@ class SensorInterface(object):
         # Only sensor that doesn't get the data on tick, needs special treatment
         self._opendrive_tag = None
 
+
     def register_sensor(self, tag, sensor_type, sensor):
         if tag in self._sensors_objects:
             raise SensorConfigurationInvalid("Duplicated sensor tag [{}]".format(tag))
@@ -219,8 +219,8 @@ class SensorInterface(object):
         # print("Updating {} - {}".format(tag, timestamp))
         if tag not in self._sensors_objects:
             raise SensorConfigurationInvalid("The sensor with tag [{}] has not been created!".format(tag))
-        self._new_data_buffers.put((tag, timestamp, data))
 
+        self._new_data_buffers.put((tag, timestamp, data))
 
     def get_data(self):
         try:
@@ -239,4 +239,5 @@ class SensorInterface(object):
 
         except Empty:
             raise SensorReceivedNoData("A sensor took too long to send their data")
+
         return data_dict

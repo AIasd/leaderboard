@@ -276,9 +276,12 @@ class RouteScenario(BasicScenario):
                                                        rolename='hero')
         print('starting_position:', ego_vehicle.get_location())
 
+        spectator = CarlaDataProvider.get_world().get_spectator()
+        ego_trans = ego_vehicle.get_transform()
+        spectator.set_transform(carla.Transform(ego_trans.location + carla.Location(z=50),
+                                                    carla.Rotation(pitch=-90)))
+
         return ego_vehicle
-
-
 
     def _estimate_route_timeout(self):
         """
@@ -358,8 +361,6 @@ class RouteScenario(BasicScenario):
                     selected_scenario = scenario
 
             return selected_scenario
-
-
 
         # The idea is to randomly sample a scenario per trigger position.
         sampled_scenarios = []
@@ -472,7 +473,6 @@ class RouteScenario(BasicScenario):
         """
         Set other_actors to the superset of all scenario actors
         """
-
         # Create the background activity of the route
         town_amount = {
             'Town01': 120,
@@ -532,7 +532,6 @@ class RouteScenario(BasicScenario):
 
         behavior = py_trees.composites.Parallel(policy=py_trees.common.ParallelPolicy.SUCCESS_ON_ONE)
 
-
         subbehavior = py_trees.composites.Parallel(name="Behavior",
                                                    policy=py_trees.common.ParallelPolicy.SUCCESS_ON_ALL)
 
@@ -573,12 +572,10 @@ class RouteScenario(BasicScenario):
     def _create_test_criteria(self):
         """
         """
-
         criteria = []
-
         route = convert_transform_to_location(self.route)
 
-        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=True)
+        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=False)
 
         route_criterion = InRouteTest(self.ego_vehicles[0],
                                       route=route,
@@ -596,7 +593,8 @@ class RouteScenario(BasicScenario):
         blocked_criterion = ActorSpeedAboveThresholdTest(self.ego_vehicles[0],
                                                          speed_threshold=0.1,
                                                          below_threshold_max_time=80.0,
-                                                         terminate_on_failure=True)
+                                                         terminate_on_failure=True,
+                                                         name="AgentBlockedTest")
 
         onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)
         offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=True)

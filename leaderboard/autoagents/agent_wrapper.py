@@ -15,7 +15,7 @@ import os
 import time
 
 import carla
-from srunner.scenariomanager.carla_data_provider import CarlaDataProvider, SensorConfigurationInvalid
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
 from leaderboard.envs.sensor_interface import CallBack, OpenDriveMapReader, SpeedometerReader, SensorConfigurationInvalid
 from leaderboard.autoagents.autonomous_agent import Track
@@ -62,9 +62,20 @@ class AgentWrapper(object):
         'sensor.camera.semantic_segmentation'
     ]
 
+    allowed_sensors = [
+        'sensor.opendrive_map',
+        'sensor.speedometer',
+        'sensor.camera.rgb',
+        'sensor.camera',
+        'sensor.lidar.ray_cast',
+        'sensor.other.radar',
+        'sensor.other.gnss',
+        'sensor.other.imu',
+        'sensor.camera.semantic_segmentation',
+    ]
+
     _agent = None
     _sensors_list = []
-
 
     def __init__(self, agent):
         """
@@ -128,6 +139,10 @@ class AgentWrapper(object):
                     bp.set_attribute('upper_fov', str(10))
                     bp.set_attribute('lower_fov', str(-30))
                     bp.set_attribute('points_per_second', str(600000))
+                    bp.set_attribute('atmosphere_attenuation_rate', str(0.004))
+                    bp.set_attribute('dropoff_general_rate', str(0.45))
+                    bp.set_attribute('dropoff_intensity_limit', str(0.8))
+                    bp.set_attribute('dropoff_zero_intensity', str(0.4))
                     sensor_location = carla.Location(x=sensor_spec['x'], y=sensor_spec['y'],
                                                      z=sensor_spec['z'])
                     sensor_rotation = carla.Rotation(pitch=sensor_spec['pitch'],
@@ -219,11 +234,13 @@ class AgentWrapper(object):
                 if math.sqrt(sensor['x']**2 + sensor['y']**2 + sensor['z']**2) > MAX_ALLOWED_RADIUS_SENSOR:
                     raise SensorConfigurationInvalid(
                         "Illegal sensor extrinsics used for Track [{}]!".format(agent_track))
+
             # Check the amount of sensors
             if sensor['type'] in sensor_count:
                 sensor_count[sensor['type']] += 1
             else:
                 sensor_count[sensor['type']] = 1
+
 
         for sensor_type, max_instances_allowed in SENSORS_LIMITS.items():
             if sensor_type in sensor_count and sensor_count[sensor_type] > max_instances_allowed:

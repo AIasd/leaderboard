@@ -45,8 +45,6 @@ class HumanInterface(object):
     def __init__(self):
         self._width = 800
         self._height = 600
-        self._throttle_delta = 0.05
-        self._steering_delta = 0.01
         self._surface = None
 
         pygame.init()
@@ -59,6 +57,7 @@ class HumanInterface(object):
         """
         Run the GUI
         """
+
         # process sensor data
         image_center = input_data['Center'][1][:, :, -2::-1]
 
@@ -101,17 +100,20 @@ class HumanAgent(AutonomousAgent):
         [
             {'type': 'sensor.camera.rgb', 'x': 0.7, 'y': -0.4, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
                       'width': 300, 'height': 200, 'fov': 100, 'id': 'Left'},
+
             {'type': 'sensor.camera.rgb', 'x': 0.7, 'y': 0.4, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
                       'width': 300, 'height': 200, 'fov': 100, 'id': 'Right'},
+
             {'type': 'sensor.lidar.ray_cast', 'x': 0.7, 'y': 0.0, 'z': 1.60, 'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0,
              'id': 'LIDAR'}
         ]
-
         """
-        sensors = [{'type': 'sensor.camera.rgb', 'x': 0.7, 'y': 0.0, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
-                    'width': 300, 'height': 200, 'fov': 100, 'id': 'Center'},
-                   {'type': 'sensor.speedometer',  'reading_frequency': 20, 'id': 'speed'},
-                   ]
+
+        sensors = [
+            {'type': 'sensor.camera.rgb', 'x': 0.7, 'y': 0.0, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
+             'width': 800, 'height': 600, 'fov': 100, 'id': 'Center'},
+            {'type': 'sensor.speedometer', 'reading_frequency': 20, 'id': 'speed'},
+        ]
 
         return sensors
 
@@ -131,8 +133,7 @@ class HumanAgent(AutonomousAgent):
         """
         Cleanup
         """
-        self._hic.quit = True
-        self._thread.join()
+        self._hic._quit = True
 
 
 class KeyboardControl(object):
@@ -160,6 +161,7 @@ class KeyboardControl(object):
             # Get the needed vars
             if self._mode == "log":
                 self._log_data = {'records': []}
+
             elif self._mode == "playback":
                 self._index = 0
                 self._control_list = []
@@ -187,7 +189,7 @@ class KeyboardControl(object):
                                            gear=entry['control']['gear'])
             self._control_list.append(control)
 
-    def parse_events(self, control, clock):
+    def parse_events(self, timestamp):
         """
         Parse the keyboard events and set the vehicle controls accordingly
         """
@@ -207,6 +209,7 @@ class KeyboardControl(object):
         """
         Calculate new vehicle controls based on input keys
         """
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
@@ -232,6 +235,7 @@ class KeyboardControl(object):
         self._control.steer = round(self._steer_cache, 1)
         self._control.brake = 1.0 if keys[K_DOWN] or keys[K_s] else 0.0
         self._control.hand_brake = keys[K_SPACE]
+
     def _parse_json_control(self):
 
         if self._index < len(self._control_list):
