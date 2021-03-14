@@ -138,6 +138,7 @@ class CallBack(object):
         self._data_provider.register_sensor(tag, sensor_type, sensor)
 
     def __call__(self, data):
+        # print('CallBack, self._tag', self._tag)
         if isinstance(data, carla.libcarla.Image):
             self._parse_image_cb(data, self._tag)
         elif isinstance(data, carla.libcarla.LidarMeasurement):
@@ -200,7 +201,7 @@ class SensorInterface(object):
         self._sensors_objects = {}
         self._data_buffers = {}
         self._new_data_buffers = Queue()
-        self._queue_timeout = 10
+        self._queue_timeout = 60
 
         # Only sensor that doesn't get the data on tick, needs special treatment
         self._opendrive_tag = None
@@ -219,7 +220,7 @@ class SensorInterface(object):
         # print("Updating {} - {}".format(tag, timestamp))
         if tag not in self._sensors_objects:
             raise SensorConfigurationInvalid("The sensor with tag [{}] has not been created!".format(tag))
-
+        # print('self._new_data_buffers.put((tag, timestamp, data))', tag)
         self._new_data_buffers.put((tag, timestamp, data))
 
     def get_data(self):
@@ -233,6 +234,8 @@ class SensorInterface(object):
                     # print("Ignoring opendrive sensor")
                     break
 
+                # print('data_dict.keys()', data_dict.keys())
+                # print('self._sensors_objects.keys()', self._sensors_objects.keys())
                 sensor_data = self._new_data_buffers.get(True, self._queue_timeout)
                 # print("Getting {} - {}".format(sensor_data[0],sensor_data[1]))
                 data_dict[sensor_data[0]] = ((sensor_data[1], sensor_data[2]))

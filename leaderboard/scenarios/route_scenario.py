@@ -235,7 +235,7 @@ class RouteScenario(BasicScenario):
         else:
             config.agent.set_global_plan(gps_route, route)
 
-        if self.customized_data:
+        if self.customized_data and 'ego_car_waypoints_perturbation' in self.customized_data:
             perturb_route(config.agent._global_plan_world_coord, self.customized_data['ego_car_waypoints_perturbation'])
         # visualize_route(config.agent._global_plan_world_coord)
         # recalculate gps to accomodate the perturbation
@@ -575,7 +575,7 @@ class RouteScenario(BasicScenario):
         criteria = []
         route = convert_transform_to_location(self.route)
 
-        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=False)
+        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=True)
 
         route_criterion = InRouteTest(self.ego_vehicles[0],
                                       route=route,

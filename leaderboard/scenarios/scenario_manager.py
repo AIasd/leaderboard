@@ -62,7 +62,6 @@ class ScenarioManager(object):
 
         self._debug_mode = debug_mode
         self._agent = None
-        self._sync_mode = sync_mode
         self._running = False
         self._timestamp_last_run = 0.0
         self._timeout = float(timeout)
@@ -130,6 +129,7 @@ class ScenarioManager(object):
         """
         Trigger the start of the scenario and wait for it to finish/fail
         """
+        # print("ScenarioManager: Running scenario {}".format(self.scenario_tree.name))
         self.start_system_time = time.time()
         self.start_game_time = GameTime.get_time()
 
@@ -137,16 +137,11 @@ class ScenarioManager(object):
         self._running = True
 
 
-
-
-
+        # addition:
         parent_folder = os.environ['SAVE_FOLDER']
-
         string = pathlib.Path(os.environ['ROUTES']).stem
         save_path = pathlib.Path(parent_folder) / string
-
         step = 0
-
         # hack: control the time of running
         # debug:
         s = time.time()
@@ -165,15 +160,10 @@ class ScenarioManager(object):
                 # addition
                 if step == 0:
                     f_out.write('x,y,yaw\n')
-                # if step % 10 == 0:
                 loc = self.ego_vehicles[0].get_location()
                 ori = self.ego_vehicles[0].get_transform().rotation
                 f_out.write(str(loc.x)+','+str(loc.y)+','+str(ori.yaw)+'\n')
                 step += 1
-
-
-                # hack: control the time of running
-                # debug:
                 if time.time()-s > self.episode_max_time:
                     self._running = False
                     break
@@ -195,7 +185,9 @@ class ScenarioManager(object):
             CarlaDataProvider.on_carla_tick()
 
             try:
+                # print('self._agent() start')
                 ego_action = self._agent()
+                # print('self._agent() end')
 
             # Special exception inside the agent that isn't caused by the agent
             except SensorReceivedNoData as e:

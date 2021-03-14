@@ -246,7 +246,7 @@ class ImageAgent(BaseAgent):
         rgb_with_car = cv2.cvtColor(input_data['rgb_with_car'][1][:, :, :3], cv2.COLOR_BGR2RGB)
         result['rgb_with_car'] = rgb_with_car
 
-        result['radar_central'] = input_data['radar_central']
+        # result['radar_central'] = input_data['radar_central']
 
         theta = result['compass']
         theta = 0.0 if np.isnan(theta) else theta
@@ -331,7 +331,7 @@ class ImageAgent(BaseAgent):
             self._init()
 
         tick_data = self.tick(input_data)
-        radar_data = tick_data['radar_central'][1]
+        # radar_data = tick_data['radar_central'][1]
 
 
 

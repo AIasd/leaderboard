@@ -118,13 +118,13 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
                     'width': 256, 'height': 144, 'fov': 90,
                     'id': 'rgb_with_car'
                     },
-                {
-                    'type': 'sensor.other.radar',
-                    'x': 2, 'y': 0.0, 'z': 1,
-                    'roll': 0.0, 'pitch': 5.0, 'yaw': 0.0,
-                    'horizontal_fov': 35, 'vertical_fov': 20, 'range': 20,
-                    'id': 'radar_central'
-                    }
+                # {
+                #     'type': 'sensor.other.radar',
+                #     'x': 2, 'y': 0.0, 'z': 1,
+                #     'roll': 0.0, 'pitch': 5.0, 'yaw': 0.0,
+                #     'horizontal_fov': 35, 'vertical_fov': 20, 'range': 20,
+                #     'id': 'radar_central'
+                #     }
                 ]
 
     def tick(self, input_data):
@@ -351,9 +351,9 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
 
 
 
-        if current_waypoint and not current_waypoint.is_junction:
-            get_d(-0.1, lane_right, 'left')
-            get_d(0.1, lane_right, 'right')
-        get_d(-0.1, ego_right, 'ego_left')
-        get_d(0.1, ego_right, 'ego_right')
-        get_d(0.1, ego_forward, 'ego_forward')
+        # if current_waypoint and not current_waypoint.is_junction:
+        #     get_d(-0.3, lane_right, 'left')
+        #     get_d(0.3, lane_right, 'right')
+        get_d(-0.3, ego_right, 'ego_left')
+        get_d(0.3, ego_right, 'ego_right')
+        get_d(0.3, ego_forward, 'ego_forward')

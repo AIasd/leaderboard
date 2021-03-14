@@ -62,18 +62,6 @@ class AgentWrapper(object):
         'sensor.camera.semantic_segmentation'
     ]
 
-    allowed_sensors = [
-        'sensor.opendrive_map',
-        'sensor.speedometer',
-        'sensor.camera.rgb',
-        'sensor.camera',
-        'sensor.lidar.ray_cast',
-        'sensor.other.radar',
-        'sensor.other.gnss',
-        'sensor.other.imu',
-        'sensor.camera.semantic_segmentation',
-    ]
-
     _agent = None
     _sensors_list = []
 
@@ -108,6 +96,7 @@ class AgentWrapper(object):
             # These are the sensors spawned on the carla world
             else:
                 bp = bp_library.find(str(sensor_spec['type']))
+                # print('bp', str(sensor_spec['type']), bp)
                 if sensor_spec['type'].startswith('sensor.camera.semantic_segmentation'):
                     bp.set_attribute('image_size_x', str(sensor_spec['width']))
                     bp.set_attribute('image_size_y', str(sensor_spec['height']))
@@ -192,6 +181,7 @@ class AgentWrapper(object):
                 sensor_transform = carla.Transform(sensor_location, sensor_rotation)
                 sensor = CarlaDataProvider.get_world().spawn_actor(bp, sensor_transform, vehicle)
             # setup callback
+            # print('setup callback', sensor_spec['id'])
             sensor.listen(CallBack(sensor_spec['id'], sensor_spec['type'], sensor, self._agent.sensor_interface))
             self._sensors_list.append(sensor)
 

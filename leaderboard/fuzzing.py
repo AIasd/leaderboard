@@ -10,7 +10,20 @@ CARLA Challenge Evaluator Routes
 
 Provisional code to evaluate Autonomous Agents for the CARLA Autonomous Driving challenge
 """
-from __future__ import print_function
+import sys
+import os
+sys.path.append('pymoo')
+carla_root = '../carla_0911_no_rss'
+sys.path.append(carla_root+'/PythonAPI/carla/dist/carla-0.9.11-py3.7-linux-x86_64.egg')
+sys.path.append(carla_root+'/PythonAPI/carla')
+sys.path.append(carla_root+'/PythonAPI')
+sys.path.append('.')
+sys.path.append('leaderboard')
+sys.path.append('leaderboard/team_code')
+sys.path.append('scenario_runner')
+sys.path.append('scenario_runner')
+sys.path.append('carla_project')
+sys.path.append('carla_project/src')
 
 import traceback
 import argparse
@@ -18,9 +31,7 @@ from argparse import RawTextHelpFormatter
 from datetime import datetime
 from distutils.version import LooseVersion
 import importlib
-import os
 import pkg_resources
-import sys
 import torchvision
 
 # addition
@@ -29,27 +40,18 @@ import time
 import numpy as np
 import traceback
 import logging
-
+import atexit
 
 import carla
+import signal
 from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.timer import GameTime
-from srunner.scenarios.control_loss import *
-from srunner.scenarios.follow_leading_vehicle import *
-from srunner.scenarios.maneuver_opposite_direction import *
-from srunner.scenarios.no_signal_junction_crossing import *
-from srunner.scenarios.object_crash_intersection import *
-from srunner.scenarios.object_crash_vehicle import *
-from srunner.scenarios.opposite_vehicle_taking_priority import *
-from srunner.scenarios.other_leading_vehicle import *
-from srunner.scenarios.signalized_junction_left_turn import *
-from srunner.scenarios.signalized_junction_right_turn import *
-from srunner.scenarios.change_lane import *
-from srunner.scenarios.cut_in import *
+from srunner.scenariomanager.watchdog import Watchdog
 
 from leaderboard.scenarios.scenario_manager import ScenarioManager
 from leaderboard.scenarios.route_scenario import RouteScenario
-from leaderboard.autoagents.agent_wrapper import SensorConfigurationInvalid
+from leaderboard.envs.sensor_interface import SensorConfigurationInvalid
+from leaderboard.autoagents.agent_wrapper import  AgentWrapper, AgentError
 from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
 
@@ -64,7 +66,12 @@ from customized_utils import (
     is_port_in_use,
     make_hierarchical_dir,
     start_server,
+    start_client,
+    try_load_world,
     port_to_gpu,
+    estimate_objectives,
+    arguments_info,
+    exit_handler
 )
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
@@ -87,13 +94,31 @@ sensors_to_icons = {
 class LeaderboardEvaluator(object):
 
     """
-    TODO: document me!
+    differences with leaderboard_evaluator:
+    - episode_max_time
+    - has_display tied with display
+    - select CUDA_VISIBLE_DEVICES
+    - start server internally
+    - start client with try loop
+    - load world with try loop
+    - signal.signal(signal.SIGINT, self._signal_handler)
+    - save folder setup
+    - weather
+    - config.friction
+    - config.cur_server_port
+    - print customized_center_transforms and other agents info
+    - self.agent_instance.set_args(args)
+    - self._load_and_wait_for_world early and interpolate_trajectory to get center_transform
+    - customized_data for RouteScenario
+    - addition of customized_data to RouteScenario initialization
+    - night mode also applies to other vehicles
+    - friction
     """
 
     ego_vehicles = []
 
     # Tunable parameters
-    client_timeout = 10.0  # in seconds
+    client_timeout = 20.0  # in seconds
     wait_for_world = 20.0  # in seconds
 
     # modification: 20.0 -> 10.0
@@ -108,7 +133,8 @@ class LeaderboardEvaluator(object):
         """
 
         self.statistics_manager = statistics_manager
-        self.sensors = []
+        self.sensors = None
+        self.sensor_icons = []
         self._vehicle_lights = (
             carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
         )
@@ -121,53 +147,48 @@ class LeaderboardEvaluator(object):
         # however, it is possible to control them separately.
         if os.environ["HAS_DISPLAY"] == "0":
             os.environ["DISPLAY"] = ""
-
         gpu = port_to_gpu(int(args.port))
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
         if launch_server:
             start_server(args.port)
-
-        while True:
-            try:
-                self.client = carla.Client(args.host, int(args.port))
-                break
-            except:
-                logging.exception("__init__ error")
-                traceback.print_exc()
+        start_client(self, args.host, int(args.port))
 
         if args.timeout:
             self.client_timeout = float(args.timeout)
         self.client.set_timeout(self.client_timeout)
 
-        dist = pkg_resources.get_distribution("carla")
-        if LooseVersion(dist.version) < LooseVersion("0.9.9"):
-            raise ImportError(
-                "CARLA version 0.9.9 or newer required. CARLA version found: {}".format(
-                    dist
-                )
-            )
+        print('get trafficmanager')
+        self.traffic_manager = self.client.get_trafficmanager(int(args.trafficManagerPort))
 
+        print('get carla distribution')
+        dist = pkg_resources.get_distribution("carla")
+        if dist.version != 'leaderboard':
+            if LooseVersion(dist.version) < LooseVersion('0.9.10'):
+                raise ImportError("CARLA version 0.9.10.1 or newer required. CARLA version found: {}".format(dist))
+
+        print('load agent')
         # Load agent
         module_name = os.path.basename(args.agent).split(".")[0]
         sys.path.insert(0, os.path.dirname(args.agent))
         self.module_agent = importlib.import_module(module_name)
 
         # Create the ScenarioManager
-        self.manager = ScenarioManager(
-            args.debug,
-            args.sync,
-            args.challenge_mode,
-            args.track,
-            self.client_timeout,
-            self.episode_max_time,
-        )
+        self.manager = ScenarioManager(args.timeout, args.debug, self.episode_max_time)
 
         # Time control for summary purposes
         self._start_time = GameTime.get_time()
         self._end_time = None
 
+        print('create the agent timer')
+        # Create the agent timer
+        self._agent_watchdog = Watchdog(int(float(args.timeout)))
+
+        # disabled since we are using dask
+        # signal.signal(signal.SIGINT, self._signal_handler)
+
         # addition
+        print('save folder initialization')
         parent_folder = args.save_folder
         if not os.path.exists(parent_folder):
             os.mkdir(parent_folder)
@@ -189,12 +210,21 @@ class LeaderboardEvaluator(object):
 
         self.save_path = str(current_record_folder / "events.txt")
 
+    def _signal_handler(self, signum, frame):
+        """
+        Terminate scenario ticking when receiving a signal interrupt
+        """
+        if self._agent_watchdog and not self._agent_watchdog.get_status():
+            raise RuntimeError("Timeout: Agent took too long to setup")
+        elif self.manager:
+            self.manager.signal_handler(signum, frame)
+
     def __del__(self):
         """
         Cleanup and delete actors, ScenarioManager and CARLA world
         """
 
-        self._cleanup(True)
+        self._cleanup()
         if hasattr(self, "manager") and self.manager:
             del self.manager
         if hasattr(self, "world") and self.world:
@@ -203,25 +233,40 @@ class LeaderboardEvaluator(object):
         # addition: manually delete client to avoid RuntimeError: Resource temporarily unavailable
         del self.client
 
-    def _cleanup(self, ego=False):
+    def _cleanup(self):
         """
         Remove and destroy all actors
         """
+        # Simulation still running and in synchronous mode?
+        if self.manager and self.manager.get_running_status() \
+                and hasattr(self, 'world') and self.world:
+            # Reset to asynchronous mode
+            settings = self.world.get_settings()
+            settings.synchronous_mode = False
+            settings.fixed_delta_seconds = None
+            self.world.apply_settings(settings)
+            self.traffic_manager.set_synchronous_mode(False)
 
-        self.client.stop_recorder()
+        if self.manager:
+            self.manager.cleanup()
 
         CarlaDataProvider.cleanup()
 
         for i, _ in enumerate(self.ego_vehicles):
             if self.ego_vehicles[i]:
-                if ego:
-                    self.ego_vehicles[i].destroy()
+                self.ego_vehicles[i].destroy()
                 self.ego_vehicles[i] = None
         self.ego_vehicles = []
+
+        if self._agent_watchdog:
+            self._agent_watchdog.stop()
 
         if hasattr(self, "agent_instance") and self.agent_instance:
             self.agent_instance.destroy()
             self.agent_instance = None
+
+        if hasattr(self, 'statistics_manager') and self.statistics_manager:
+            self.statistics_manager.scenario = None
 
     def _prepare_ego_vehicles(self, ego_vehicles, wait_for_ego_vehicles=False):
         """
@@ -230,16 +275,8 @@ class LeaderboardEvaluator(object):
 
         if not wait_for_ego_vehicles:
             for vehicle in ego_vehicles:
-                self.ego_vehicles.append(
-                    CarlaDataProvider.setup_actor(
-                        vehicle.model,
-                        vehicle.transform,
-                        vehicle.rolename,
-                        True,
-                        color=vehicle.color,
-                        vehicle_category=vehicle.category,
-                    )
-                )
+                self.ego_vehicles.append(CarlaDataProvider.request_new_actor(vehicle.model, vehicle.transform, vehicle.rolename, color=vehicle.color, vehicle_category=vehicle.category))
+
         else:
             ego_vehicle_missing = True
             while ego_vehicle_missing:
@@ -273,48 +310,58 @@ class LeaderboardEvaluator(object):
         Load a new CARLA world and provide data to CarlaDataProvider and CarlaDataProvider
         """
 
-        while True:
-            try:
-                self.world = self.client.load_world(town)
-                break
-            except:
-                logging.exception("_load_and_wait_for_world error")
-                traceback.print_exc()
-
-                start_server(args.port)
-                self.client = carla.Client(args.host, int(args.port))
-
+        try_load_world(self, town, args.host, int(args.port))
         settings = self.world.get_settings()
         settings.fixed_delta_seconds = 1.0 / self.frame_rate
         settings.synchronous_mode = True
-
         self.world.apply_settings(settings)
+
+        self.world.reset_all_traffic_lights()
 
         CarlaDataProvider.set_client(self.client)
         CarlaDataProvider.set_world(self.world)
+        CarlaDataProvider.set_traffic_manager_port(int(args.trafficManagerPort))
 
-        spectator = CarlaDataProvider.get_world().get_spectator()
-        spectator.set_transform(
-            carla.Transform(carla.Location(x=0, y=0, z=20), carla.Rotation(pitch=-90))
-        )
+        self.traffic_manager.set_synchronous_mode(True)
+        self.traffic_manager.set_random_device_seed(int(args.trafficManagerSeed))
 
         # Wait for the world to be ready
-        if self.world.get_settings().synchronous_mode:
+        if CarlaDataProvider.is_sync_mode():
             self.world.tick()
         else:
             self.world.wait_for_tick()
 
         if CarlaDataProvider.get_map().name != town:
-            print("The CARLA server uses the wrong map!")
-            print("This scenario requires to use map {}".format(town))
-            return False
-
+            raise Exception("The CARLA server uses the wrong map!"
+                            "This scenario requires to use map {}".format(town))
         return True
+
+    def _register_statistics(self, config, checkpoint, entry_status, crash_message=""):
+            """
+            Computes and saved the simulation statistics
+            """
+            # register statistics
+            current_stats_record = self.statistics_manager.compute_route_statistics(
+                config,
+                self.manager.scenario_duration_system,
+                self.manager.scenario_duration_game,
+                crash_message
+            )
+
+            print("\033[1m> Registering the route statistics\033[0m")
+            self.statistics_manager.save_record(current_stats_record, config.index, self.save_path)
+            self.statistics_manager.save_entry_status(entry_status, False, self.save_path)
 
     def _load_and_run_scenario(self, args, config, customized_data):
         """
-        Load and run the scenario given by config
+        Load and run the scenario given by config.
+
+        Depending on what code fails, the simulation will either stop the route and
+        continue from the next one, or report a crash and stop.
         """
+        crash_message = ""
+        entry_status = "Started"
+
         # hack:
         if args.weather_index == -1:
             weather = customized_data["fine_grained_weather"]
@@ -325,6 +372,10 @@ class LeaderboardEvaluator(object):
         config.friction = customized_data["friction"]
         config.cur_server_port = customized_data["port"]
 
+        print("\n\033[1m========= Preparing {} (repetition {}) =========".format(config.name, config.repetition_index))
+        print("> Setting up the agent\033[0m")
+
+        # addition:
         if not self._load_and_wait_for_world(args, config.town, config.ego_vehicles):
             self._cleanup()
             return
@@ -332,23 +383,21 @@ class LeaderboardEvaluator(object):
         _, route = interpolate_trajectory(self.world, config.trajectory)
         customized_data["center_transform"] = route[int(len(route) // 2)][0]
 
-        """
-        customized non-default center transforms for actors
-        ['waypoint_ratio', 'absolute_location']
-        """
+        # print customized_center_transforms and other agents info
+        # customized non-default center transforms for actors ['waypoint_ratio', 'absolute_location']
         for k, v in customized_data["customized_center_transforms"].items():
             if v[0] == "waypoint_ratio":
                 r = v[1] / 100
                 ind = np.min([int(len(route) * r), len(route) - 1])
                 loc = route[ind][0].location
                 customized_data[k] = create_transform(loc.x, loc.y, 0, 0, 0, 0)
-                print("waypoint_ratio", loc.x, loc.y)
+                print("waypoint_ratio - center transform", loc.x, loc.y)
             elif v[0] == "absolute_location":
                 customized_data[k] = create_transform(v[1], v[2], 0, 0, 0, 0)
             else:
                 print("unknown key", k)
 
-        if "weather_index" in customized_data:
+        if customized_data['using_customized_route_and_scenario']:
             print("-" * 100)
             print("port :", customized_data["port"])
             print(
@@ -365,131 +414,160 @@ class LeaderboardEvaluator(object):
             print("num_of_vehicles :", customized_data["num_of_vehicles"])
             print("-" * 100)
 
-        agent_class_name = getattr(self.module_agent, "get_entry_point")()
+        # Prepare the statistics of the route
+        self.statistics_manager.set_route(config.name, config.index)
+
+        # Set up the user's agent, and the timer to avoid freezing the simulation
         try:
-            self.agent_instance = getattr(self.module_agent, agent_class_name)(
-                args.agent_config
-            )
-
-            # addition
-            # self.agent_instance.set_trajectory(config.trajectory)
+            self._agent_watchdog.start()
+            agent_class_name = getattr(self.module_agent, 'get_entry_point')()
+            self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+            # addition: pass args into the agent instance
             self.agent_instance.set_args(args)
-
             config.agent = self.agent_instance
-            self.sensors = [
-                sensors_to_icons[sensor["type"]]
-                for sensor in self.agent_instance.sensors()
-            ]
+
+            # Check and store the sensors
+            if not self.sensors:
+                self.sensors = self.agent_instance.sensors()
+                track = self.agent_instance.track
+
+                AgentWrapper.validate_sensor_configuration(self.sensors, track, args.track)
+
+                self.sensor_icons = [sensors_to_icons[sensor['type']] for sensor in self.sensors]
+                self.statistics_manager.save_sensors(self.sensor_icons, self.save_path)
+
+            self._agent_watchdog.stop()
+
+        except SensorConfigurationInvalid as e:
+            # The sensors are invalid -> set the ejecution to rejected and stop
+            print("\n\033[91mThe sensor's configuration used is invalid:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
+
+            crash_message = "Agent's sensors were invalid"
+            entry_status = "Rejected"
+
+            self._register_statistics(config, self.save_path, entry_status, crash_message)
+            self._cleanup()
+            sys.exit(-1)
+
         except Exception as e:
-            print("Could not setup required agent due to {}".format(e))
+            # The agent setup has failed -> start the next route
+            print("\n\033[91mCould not set up the required agent:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
+
+            crash_message = "Agent couldn't be set up"
+
+            self._register_statistics(config, self.save_path, entry_status, crash_message)
             traceback.print_exc()
             self._cleanup()
             return
 
-        # Prepare scenario
-        print("Preparing scenario: " + config.name)
-
+        print("\033[1m> Loading the world\033[0m")
+        # Load the world and the scenario
         try:
+            # self._load_and_wait_for_world(args, config.town, config.ego_vehicles)
             self._prepare_ego_vehicles(config.ego_vehicles, False)
-            # print('\n'*10, 'RouteScenario config.cur_server_port', config.cur_server_port, '\n'*10)
-            scenario = RouteScenario(
-                world=self.world,
-                config=config,
-                debug_mode=args.debug,
-                customized_data=customized_data,
-            )
+            scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug, customized_data=customized_data)
+            self.statistics_manager.set_scenario(scenario.scenario)
 
-        except Exception as exception:
-            print("The scenario cannot be loaded")
-            if args.debug:
-                traceback.print_exc()
-            print(exception)
-            self._cleanup()
-            return
+            # Night mode
+            if config.weather.sun_altitude_angle < 0.0:
+                for vehicle in scenario.ego_vehicles:
+                    vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
+                # addition: to turn on lights of
+                actor_list = self.world.get_actors()
+                vehicle_list = actor_list.filter('*vehicle*')
+                for vehicle in vehicle_list:
+                    vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
+            # addition
+            # Set the appropriate road friction
+            if config.friction is not None:
+                friction_bp = self.world.get_blueprint_library().find(
+                    "static.trigger.friction"
+                )
+                extent = carla.Location(1000000.0, 1000000.0, 1000000.0)
+                friction_bp.set_attribute("friction", str(config.friction))
+                friction_bp.set_attribute("extent_x", str(extent.x))
+                friction_bp.set_attribute("extent_y", str(extent.y))
+                friction_bp.set_attribute("extent_z", str(extent.z))
 
-        # Set the appropriate weather conditions
-        weather = carla.WeatherParameters(
-            cloudiness=config.weather.cloudiness,
-            precipitation=config.weather.precipitation,
-            precipitation_deposits=config.weather.precipitation_deposits,
-            wind_intensity=config.weather.wind_intensity,
-            sun_azimuth_angle=config.weather.sun_azimuth_angle,
-            sun_altitude_angle=config.weather.sun_altitude_angle,
-            fog_density=config.weather.fog_density,
-            fog_distance=config.weather.fog_distance,
-            wetness=config.weather.wetness,
-        )
+                # Spawn Trigger Friction
+                transform = carla.Transform()
+                transform.location = carla.Location(-10000.0, -10000.0, 0.0)
+                self.world.spawn_actor(friction_bp, transform)
 
-        self.world.set_weather(weather)
-
-        # Set the appropriate road friction
-        if config.friction is not None:
-            friction_bp = self.world.get_blueprint_library().find(
-                "static.trigger.friction"
-            )
-            extent = carla.Location(1000000.0, 1000000.0, 1000000.0)
-            friction_bp.set_attribute("friction", str(config.friction))
-            friction_bp.set_attribute("extent_x", str(extent.x))
-            friction_bp.set_attribute("extent_y", str(extent.y))
-            friction_bp.set_attribute("extent_z", str(extent.z))
-
-            # Spawn Trigger Friction
-            transform = carla.Transform()
-            transform.location = carla.Location(-10000.0, -10000.0, 0.0)
-            self.world.spawn_actor(friction_bp, transform)
-
-        # night mode
-        if config.weather.sun_altitude_angle < 0.0:
-            for vehicle in scenario.ego_vehicles:
-                vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
-            # addition: to turn on lights of
-            actor_list = self.world.get_actors()
-            vehicle_list = actor_list.filter("*vehicle*")
-            for vehicle in vehicle_list:
-                vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
-
-        try:
             # Load scenario and run it
             if args.record:
-                self.client.start_recorder("{}/{}.log".format(args.record, config.name))
-            self.manager.load_scenario(scenario, self.agent_instance)
-            self.statistics_manager.set_route(
-                config.name, config.index, scenario.scenario
-            )
+                self.client.start_recorder("{}/{}_rep{}.log".format(args.record, config.name, config.repetition_index))
+            print('self.manager load scenario')
+            self.manager.load_scenario(scenario, self.agent_instance, config.repetition_index)
+
+        except Exception as e:
+            # The scenario is wrong -> set the ejecution to crashed and stop
+            print("\n\033[91mThe scenario could not be loaded:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
+
+            crash_message = "Simulation crashed"
+            entry_status = "Crashed"
+
+            self._register_statistics(config, self.save_path, entry_status, crash_message)
+
+            if args.record:
+                self.client.stop_recorder()
+
+            self._cleanup()
+            sys.exit(-1)
+
+        print("\033[1m> Running the route\033[0m")
+
+        # Run the scenario
+        try:
             print("start to run scenario")
             self.manager.run_scenario()
             print("stop to run scanario")
-            # Stop scenario
-            self.manager.stop_scenario()
-            # register statistics
-            current_stats_record = self.statistics_manager.compute_route_statistics(
-                config,
-                self.manager.scenario_duration_system,
-                self.manager.scenario_duration_game,
-            )
-            # save
-            # modification
 
-            self.statistics_manager.save_record(
-                current_stats_record, config.index, self.save_path
-            )
+        except AgentError as e:
+            # The agent has failed -> stop the route
+            print("\n\033[91mStopping the route, the agent has crashed:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
+
+            crash_message = "Agent crashed"
+        except Exception as e:
+            print("\n\033[91mError during the simulation:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
+
+            crash_message = "Simulation crashed"
+            entry_status = "Crashed"
+
+        # Stop the scenario
+        try:
+            print("\033[1m> Stopping the route\033[0m")
+            self.manager.stop_scenario()
+            self._register_statistics(config, self.save_path, entry_status, crash_message)
+
+            if args.record:
+                self.client.stop_recorder()
 
             # Remove all actors
             scenario.remove_all_actors()
 
-            settings = self.world.get_settings()
-            settings.synchronous_mode = False
-            settings.fixed_delta_seconds = None
-            self.world.apply_settings(settings)
-        except SensorConfigurationInvalid as e:
-            self._cleanup(True)
-            sys.exit(-1)
-        except Exception as e:
-            if args.debug:
-                traceback.print_exc()
-            print(e)
+            self._cleanup()
 
-        self._cleanup()
+        except Exception as e:
+
+            print("\n\033[91mFailed to stop the scenario, the statistics might be empty:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
+
+            crash_message = "Simulation crashed"
+
+        if crash_message == "Simulation crashed":
+            sys.exit(-1)
 
     def run(self, args, customized_data):
         """
@@ -503,238 +581,163 @@ class LeaderboardEvaluator(object):
             self.statistics_manager.resume(self.save_path)
         else:
             self.statistics_manager.clear_record(self.save_path)
+            route_indexer.save_state(self.save_path)
+
         while route_indexer.peek():
             # setup
             config = route_indexer.next()
             # run
             self._load_and_run_scenario(args, config, customized_data)
-            self._cleanup(ego=True)
 
             route_indexer.save_state(self.save_path)
         # save global statistics
         # modification
+        print("\033[1m> Registering the global statistics\033[0m")
         global_stats_record = self.statistics_manager.compute_global_statistics(
             route_indexer.total
         )
-        StatisticsManager.save_global_record(
-            global_stats_record, self.sensors, self.save_path
-        )
+        StatisticsManager.save_global_record(global_stats_record, self.sensor_icons, route_indexer.total, self.save_path)
 
 
-def main():
+def run_simulation(customized_data, launch_server, episode_max_time, route_path, route_str, scenario_file, ego_car_model, background_vehicles=False, changing_weather=False, save_folder=None, using_customized_route_and_scenario=True, record_every_n_step=1):
+    arguments = arguments_info()
+    arguments.port = customized_data['port']
+    arguments.background_vehicles = background_vehicles
+    arguments.record_every_n_step = record_every_n_step
 
-    arguments = specify_args()
-    arguments.debug = True
+    if save_folder:
+        arguments.save_folder = save_folder
+
+    # model path and checkpoint path
+    if ego_car_model == 'lbc':
+        arguments.agent = 'scenario_runner/team_code/image_agent.py'
+        arguments.agent_config = 'models/epoch=24.ckpt'
+        base_save_folder = 'collected_data_customized'
+    elif ego_car_model == 'auto_pilot':
+        arguments.agent = 'leaderboard/team_code/auto_pilot.py'
+        arguments.agent_config = ''
+        base_save_folder = 'collected_data_autopilot'
+    elif ego_car_model == 'pid_agent':
+        arguments.agent = 'scenario_runner/team_code/pid_agent.py'
+        arguments.agent_config = ''
+        base_save_folder = 'collected_data_pid_agent'
+    elif ego_car_model == 'map_model':
+        arguments.agent = 'scenario_runner/team_code/map_agent.py'
+        arguments.agent_config = 'models/stage1_default_50_epoch=16.ckpt'
+        base_save_folder = 'collected_data_map_model'
+    else:
+        print('unknown ego_car_model:', ego_car_model)
+        raise
+
+
+
+    from leaderboard.utils.statistics_manager import StatisticsManager
     statistics_manager = StatisticsManager()
-
     # Fixed Hyperparameters
-    # if use_actors = False, no other actors will be generated
-    use_actors = False
-    using_customized_route_and_scenario = True
-    multi_actors_scenarios = ["Scenario12"]
-    arguments.scenarios = "leaderboard/data/fuzzing_scenarios.json"
-    town_name = "Town03"
-    scenario = "Scenario12"
-    direction = "front"
-    route = 0
-    # sample_factor is an integer between [1, 5]
     sample_factor = 5
-    # waypoints_num_limit: the maximum number of waypoints that we consider to perturb.
-    waypoints_num_limit = 10
-    # lane_width = 3.5
-    max_num_of_vehicle = 2
-    max_num_of_pedestrians = 2
+    arguments.debug = 0
 
-    # Parameters to optimize
-    # Set up environment parameters
-    # real, [0, 1]
-    friction = 0.1
-    # integer, [0, 20]
-    weather_index = 2
 
     # Laundry Stuff-------------------------------------------------------------
-    arguments.weather_index = weather_index
-    os.environ["WEATHER_INDEX"] = str(weather_index)
+    arguments.weather_index = customized_data['weather_index']
+    os.environ['WEATHER_INDEX'] = str(customized_data['weather_index'])
 
-    town_scenario_direction = town_name + "/" + scenario
 
-    folders = [os.environ["SAVE_FOLDER"], town_name, scenario]
-    if scenario in multi_actors_scenarios:
-        town_scenario_direction += "/" + direction
-        folders.append(direction)
+    # used to read scenario file
+    arguments.scenarios = scenario_file
 
-    cur_folder_name = make_hierarchical_dir(folders)
+    # used to compose folder to save real-time data
+    os.environ['SAVE_FOLDER'] = arguments.save_folder
 
-    os.environ["SAVE_FOLDER"] = cur_folder_name
-    arguments.save_folder = os.environ["SAVE_FOLDER"]
+    # used to read route to run; used to compose folder to save real-time data
+    arguments.routes = route_path
+    os.environ['ROUTES'] = arguments.routes
 
-    route_prefix = (
-        "leaderboard/data/customized_routes/" + town_scenario_direction + "/route_"
-    )
+    # used to record real time deviation data
+    arguments.deviations_folder = arguments.save_folder + '/' + pathlib.Path(os.environ['ROUTES']).stem
 
-    route_str = str(route)
-    if route < 10:
-        route_str = "0" + route_str
-    arguments.routes = route_prefix + route_str + ".xml"
-    os.environ["ROUTES"] = arguments.routes
+    # used to read real-time data
+    save_path = arguments.save_folder + '/' + pathlib.Path(os.environ['ROUTES']).stem
+
+
+    arguments.changing_weather = changing_weather
+
+
 
     # extract waypoints along route
     import xml.etree.ElementTree as ET
-
     tree = ET.parse(arguments.routes)
     route_waypoints = []
 
-    # this iteration should only go once since we only keep one route per file
+
     for route in tree.iter("route"):
-        route_id = route.attrib["id"]
-        route_town = route.attrib["town"]
+        for waypoint in route.iter('waypoint'):
+            route_waypoints.append(create_transform(float(waypoint.attrib['x']), float(waypoint.attrib['y']), float(waypoint.attrib['z']), float(waypoint.attrib['pitch']), float(waypoint.attrib['yaw']), float(waypoint.attrib['roll'])))
 
-        for waypoint in route.iter("waypoint"):
-            route_waypoints.append(
-                carla.Transform(
-                    carla.Location(
-                        x=float(waypoint.attrib["x"]),
-                        y=float(waypoint.attrib["y"]),
-                        z=float(waypoint.attrib["z"]),
-                    ),
-                    carla.Rotation(
-                        float(waypoint.attrib["pitch"]),
-                        float(waypoint.attrib["yaw"]),
-                        float(waypoint.attrib["roll"]),
-                    ),
-                )
-            )
-
-    # extract waypoints for the scenario
-    world_annotations = RouteParser.parse_annotations_file(arguments.scenarios)
-    info = world_annotations[town_name][0]["available_event_configurations"][0]
-
-    center = info["center"]
-    RouteParser.convert_waypoint_float(center)
-    center_location = carla.Location(
-        float(center["x"]), float(center["y"]), float(center["z"])
-    )
-    center_rotation = carla.Rotation(float(center["pitch"]), float(center["yaw"]), 0.0)
-    center_transform = carla.Transform(center_location, center_rotation)
     # --------------------------------------------------------------------------
 
-    if use_actors:
-        # Set up actors
-
-        # ego car
-        ego_car_waypoints_perturbation = []
-        for i in range(waypoints_num_limit):
-            dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-            dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-            ego_car_waypoints_perturbation.append((dx, dy))
-
-        # static
-        static_1_transform = center_transform
-        static_1 = Static(
-            model="static.prop.barrel", spawn_transform=static_1_transform
-        )
-        static_list = [static_1]
-
-        # pedestrians
-        pedestrian_1_transform = create_transform(
-            route_waypoints[0].location.x - 2,
-            route_waypoints[0].location.y - 8,
-            0,
-            0,
-            route_waypoints[0].rotation.yaw,
-            0,
-        )
-        pedestrian_1 = Pedestrian(
-            model="walker.pedestrian.0001",
-            spawn_transform=pedestrian_1_transform,
-            trigger_distance=20,
-            speed=1.5,
-            dist_to_travel=6,
-            after_trigger_behavior="stop",
-        )
-        pedestrian_list = [pedestrian_1]
-
-        # vehicles
-        waypoint_follower = True
-
-        vehicle_1_transform = create_transform(
-            route_waypoints[1].location.x,
-            route_waypoints[1].location.y - 5,
-            0,
-            0,
-            route_waypoints[1].rotation.yaw,
-            0,
-        )
-
-        # if waypoint_follower == False
-        vehicle_1_dist_to_travel = 5
-        vehicle_1_target_direction = carla.Vector3D(x=0.2, y=1, z=0)
-
-        # else
-        targeted_waypoint = create_transform(
-            route_waypoints[1].location.x,
-            route_waypoints[1].location.y - 40,
-            0,
-            0,
-            route_waypoints[1].rotation.yaw,
-            0,
-        )
-        # targeted_waypoint = route_waypoints[-1]
-
-        vehicle_1_waypoints_perturbation = []
-
-        for i in range(waypoints_num_limit):
-            dx = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-            dy = np.clip(np.random.normal(0, 2, 1)[0], -0.5, 0.5)
-            vehicle_1_waypoints_perturbation.append((dx, dy))
-
-        vehicle_1 = Vehicle(
-            model="vehicle.audi.a2",
-            spawn_transform=vehicle_1_transform,
-            avoid_collision=True,
-            initial_speed=0,
-            trigger_distance=10,
-            waypoint_follower=waypoint_follower,
-            targeted_waypoint=targeted_waypoint,
-            dist_to_travel=vehicle_1_dist_to_travel,
-            target_direction=vehicle_1_target_direction,
-            targeted_speed=10,
-            after_trigger_behavior="stop",
-            color="(0, 0, 0)",
-            waypoints_perturbation=vehicle_1_waypoints_perturbation,
-        )
-
-        vehicle_list = [vehicle_1]
-    else:
-        static_list = []
-        pedestrian_list = []
-        vehicle_list = []
-        ego_car_waypoints_perturbation = []
-
-    customized_data = {
-        "friction": friction,
-        "static_list": static_list,
-        "pedestrian_list": pedestrian_list,
-        "vehicle_list": vehicle_list,
-        "center_transform": center_transform,
-        "using_customized_route_and_scenario": True,
-        "destination": route_waypoints[-1].location,
-        "sample_factor": sample_factor,
-        "ego_car_waypoints_perturbation": ego_car_waypoints_perturbation,
-        "port": arguments.port,
-        "customized_center_transforms": {},
-        "parameters_min_bounds": [],
-        "parameters_max_bounds": [],
-    }
+    customized_data['using_customized_route_and_scenario'] = using_customized_route_and_scenario
+    customized_data['destination'] = route_waypoints[-1].location
+    customized_data['sample_factor'] = sample_factor
+    customized_data['number_of_attempts_to_request_actor'] = 10
 
     try:
-        leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
+        leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager, launch_server, episode_max_time)
         leaderboard_evaluator.run(arguments, customized_data)
-
     except Exception as e:
         traceback.print_exc()
     finally:
         del leaderboard_evaluator
+        # collect signals for estimating objectives
+
+        objectives, loc, object_type, route_completion = estimate_objectives(save_path)
+
+
+    return objectives, loc, object_type, route_completion
+
+
+def main():
+    # changing weather is only activated when auto_pilot is used
+
+    route_dir = 'leaderboard/data/routes_training'
+    start_ind = 0
+
+
+    route_paths_and_strs = [(os.path.join(route_dir, route), route[:-4])  for route in os.listdir(route_dir)]
+    # hack: only work for the specific format used
+    route_paths_and_strs = sorted(route_paths_and_strs, key=lambda p:int(p[0][-6:-4]))
+    print('route_paths_and_strs', route_paths_and_strs)
+
+    route_paths_and_strs = route_paths_and_strs[start_ind:]
+
+    os.environ["HAS_DISPLAY"] = '1'
+    port = 2003
+    atexit.register(exit_handler, [port])
+
+    customized_data = {
+    'port': port,
+    'weather_index': 0,
+    'using_customized_route_and_scenario': None,
+    'destination': None,
+    'sample_factor': None,
+    'number_of_attempts_to_request_actor': None,
+    "friction": 0.8,
+    "center_transform": None,
+    "customized_center_transforms": {}
+    }
+
+    episode_max_time = 100000
+    scenario_file = 'leaderboard/data/all_towns_traffic_scenarios_public.json'
+    ego_car_model = 'auto_pilot'
+    save_folder = 'tmp/'
+    record_every_n_step = 5
+
+    for i, (route_path, route_str) in enumerate(route_paths_and_strs):
+        if i == 0:
+            launch_server = True
+        else:
+            launch_server = True
+        run_simulation(customized_data, launch_server, episode_max_time, route_path, route_str, scenario_file, ego_car_model, background_vehicles=True, changing_weather=True, save_folder=save_folder, using_customized_route_and_scenario=False, record_every_n_step=record_every_n_step)
 
 
 if __name__ == "__main__":

@@ -94,6 +94,13 @@ class ResultOutputProvider(object):
                 actual_value = ""
             elif name == "AgentBlockedTest":
                 actual_value = ""
+            # addition:
+            elif name == "OnSidewalkTest":
+                actual_value = str(actual_value) + " times"
+            elif name == "OffRoadTest":
+                actual_value = str(actual_value) + " times"
+            elif name == "WrongLaneTest":
+                actual_value = str(actual_value) + " times"
 
             list_statistics.extend([[name, result, actual_value]])
 
