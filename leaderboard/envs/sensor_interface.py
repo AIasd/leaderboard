@@ -138,7 +138,7 @@ class CallBack(object):
         self._data_provider.register_sensor(tag, sensor_type, sensor)
 
     def __call__(self, data):
-        # print('CallBack, self._tag', self._tag)
+        print('CallBack, self._tag', self._tag)
         if isinstance(data, carla.libcarla.Image):
             self._parse_image_cb(data, self._tag)
         elif isinstance(data, carla.libcarla.LidarMeasurement):
@@ -217,10 +217,10 @@ class SensorInterface(object):
             self._opendrive_tag = tag
 
     def update_sensor(self, tag, data, timestamp):
-        # print("Updating {} - {}".format(tag, timestamp))
+        print("Updating {} - {}".format(tag, timestamp))
         if tag not in self._sensors_objects:
             raise SensorConfigurationInvalid("The sensor with tag [{}] has not been created!".format(tag))
-        # print('self._new_data_buffers.put((tag, timestamp, data))', tag)
+        print('self._new_data_buffers.put((tag, timestamp, data))', tag)
         self._new_data_buffers.put((tag, timestamp, data))
 
     def get_data(self):

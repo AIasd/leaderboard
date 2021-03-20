@@ -400,14 +400,7 @@ class LeaderboardEvaluator(object):
         if customized_data['using_customized_route_and_scenario']:
             print("-" * 100)
             print("port :", customized_data["port"])
-            print(
-                "center_transform :",
-                "(",
-                customized_data["center_transform"].location.x,
-                customized_data["center_transform"].location.y,
-                ")",
-            )
-            print("friction :", customized_data["friction"])
+
             print("weather_index :", customized_data["weather_index"])
             print("num_of_static :", customized_data["num_of_static"])
             print("num_of_pedestrians :", customized_data["num_of_pedestrians"])
@@ -421,8 +414,8 @@ class LeaderboardEvaluator(object):
         try:
             self._agent_watchdog.start()
             agent_class_name = getattr(self.module_agent, 'get_entry_point')()
-            if self.ego_car_model == 'rl':
-                frin customized_utils import get_rl_agent_args
+            if args.ego_car_model == 'rl':
+                from customized_utils import get_rl_agent_args
                 rl_agent_args = get_rl_agent_args()
                 rl_agent_args.path_folder_model = args.agent_config
                 rl_agent_args.front_camera_width = 256
