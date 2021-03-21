@@ -196,14 +196,14 @@ class RouteScenario(BasicScenario):
         self._update_route(world, config, debug_mode>0)
 
         ego_vehicle = self._update_ego_vehicle()
-
+        print('self.sampled_scenarios_definitions', self.sampled_scenarios_definitions)
         self.list_scenarios = self._build_scenario_instances(world,
                                                              ego_vehicle,
                                                              self.sampled_scenarios_definitions,
                                                              scenarios_per_tick=5,
                                                              timeout=self.timeout,
                                                              debug_mode=debug_mode)
-        # print('\n'*10, 'RouteScenario config.cur_server_port', config.cur_server_port, '\n'*10)
+        print('\n'*10, 'self.list_scenarios', self.list_scenarios, '\n'*10)
         super(RouteScenario, self).__init__(name=config.name,
                                             ego_vehicles=[ego_vehicle],
                                             config=config,
@@ -236,7 +236,7 @@ class RouteScenario(BasicScenario):
         else:
             config.agent.set_global_plan(gps_route, route)
 
-        if self.customized_data:
+        if self.customized_data and 'ego_car_waypoints_perturbation' in self.customized_data:
             perturb_route(config.agent._global_plan_world_coord, self.customized_data['ego_car_waypoints_perturbation'])
 
 
@@ -251,7 +251,8 @@ class RouteScenario(BasicScenario):
 
 
         potential_scenarios_definitions, _ = RouteParser.scan_route_for_scenarios(config.town, route, world_annotations)
-        print('\n potential_scenarios_definitions :', len(potential_scenarios_definitions[0]), '\n')
+        print('\n potential_scenarios_definitions[0] :', len(potential_scenarios_definitions[0]), '\n')
+        print('\n potential_scenarios_definitions.keys() :', len(potential_scenarios_definitions.keys()), '\n')
 
         CarlaDataProvider.set_ego_vehicle_route(convert_transform_to_location(self.route))
 
@@ -440,7 +441,7 @@ class RouteScenario(BasicScenario):
                 continue
 
             scenario_instance_vec.append(scenario_instance)
-
+        print('\n'*3, 'len(scenario_instance_vec)', len(scenario_instance_vec), '\n'*3)
         return scenario_instance_vec
 
     def _get_actors_instances(self, list_of_antagonist_actors):
@@ -568,7 +569,7 @@ class RouteScenario(BasicScenario):
             scenario_trigger_distance,
             repeat_scenarios=False
         )
-
+        # print('len(scenario_behaviors)', len(scenario_behaviors), 'len(scenario_behaviors)', len(scenario_behaviors))
         subbehavior.add_child(scenario_triggerer)  # make ScenarioTriggerer the first thing to be checked
         subbehavior.add_children(scenario_behaviors)
         subbehavior.add_child(Idle())  # The behaviours cannot make the route scenario stop
@@ -578,6 +579,16 @@ class RouteScenario(BasicScenario):
     def _create_test_criteria(self):
         """
         """
+        terminate_on_collision = True
+        terminate_on_offroad = True
+        terminate_on_wronglane = True
+
+        if 'terminate_on_collision' in self.customized_data:
+            terminate_on_collision = self.customized_data['terminate_on_collision']
+        if 'terminate_on_offroad' in self.customized_data:
+            terminate_on_offroad = self.customized_data['terminate_on_offroad']
+        if 'terminate_on_wronglane' in self.customized_data:
+            terminate_on_wronglane = self.customized_data['terminate_on_wronglane']
 
         criteria = []
 
@@ -603,9 +614,9 @@ class RouteScenario(BasicScenario):
                                                          below_threshold_max_time=80.0,
                                                          terminate_on_failure=True)
 
-        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)
-        offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=True)
-        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0], terminate_on_failure=True)
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_collision)
+        offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_offroad)
+        wronglane_criterion = WrongLaneTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_wronglane)
 
         criteria.append(completion_criterion)
         criteria.append(collision_criterion)

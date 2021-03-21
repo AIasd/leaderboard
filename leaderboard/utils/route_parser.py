@@ -17,9 +17,9 @@ from srunner.scenarioconfigs.route_scenario_configuration import RouteScenarioCo
 
 # TODO  check this threshold, it could be a bit larger but not so large that we cluster scenarios.
 # hack: increase this threshold
-TRIGGER_THRESHOLD = 1000.0  # Threshold to say if a trigger position is new or repeated, works for matching positions
+TRIGGER_THRESHOLD = 2.0  # Threshold to say if a trigger position is new or repeated, works for matching positions
 # hack: 10->360 such that it is ignored
-TRIGGER_ANGLE_THRESHOLD = 360  # Threshold to say if two angles can be considering matching when matching transforms.
+TRIGGER_ANGLE_THRESHOLD = 10  # Threshold to say if two angles can be considering matching when matching transforms.
 
 
 class RouteParser(object):
@@ -325,6 +325,7 @@ class RouteParser(object):
                         }
 
                         trigger_id = RouteParser.check_trigger_position(waypoint, existent_triggers)
+                        print('waypoint', waypoint, 'existent_triggers', existent_triggers, 'trigger_id', trigger_id)
                         if trigger_id is None:
                             # This trigger does not exist create a new reference on existent triggers
                             existent_triggers.update({latest_trigger_id: waypoint})

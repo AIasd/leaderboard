@@ -174,6 +174,7 @@ class ScenarioManager(object):
                 # hack: control the time of running
                 # debug:
                 if time.time()-s > self.episode_max_time:
+                    print('maximum time reaches, end running')
                     self._running = False
                     break
 
