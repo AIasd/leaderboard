@@ -621,7 +621,7 @@ def main():
     # changing weather is only activated when auto_pilot is used
 
     route_dir = 'leaderboard/data/routes'
-    start_ind = 37
+    start_ind = 0
     end_ind = 76
 
 
@@ -630,7 +630,7 @@ def main():
     route_paths_and_strs = sorted(route_paths_and_strs, key=lambda p:int(p[0][-6:-4]))
     print('route_paths_and_strs', route_paths_and_strs)
 
-    route_paths_and_strs = route_paths_and_strs[start_ind:]
+    route_paths_and_strs = route_paths_and_strs[start_ind:end_ind]
 
     os.environ["HAS_DISPLAY"] = '1'
     port = 2003

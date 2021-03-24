@@ -594,7 +594,7 @@ class RouteScenario(BasicScenario):
 
         route = convert_transform_to_location(self.route)
 
-        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=True)
+        collision_criterion = CollisionTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_collision)
 
         route_criterion = InRouteTest(self.ego_vehicles[0],
                                       route=route,
@@ -612,9 +612,9 @@ class RouteScenario(BasicScenario):
         blocked_criterion = ActorSpeedAboveThresholdTest(self.ego_vehicles[0],
                                                          speed_threshold=0.1,
                                                          below_threshold_max_time=80.0,
-                                                         terminate_on_failure=True)
+                                                         terminate_on_failure=False)
 
-        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_collision)
+        onsidewalk_criterion = OnSidewalkTest(self.ego_vehicles[0], terminate_on_failure=False)
         offroad_criterion = OffRoadTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_offroad)
         wronglane_criterion = WrongLaneTest(self.ego_vehicles[0], terminate_on_failure=terminate_on_wronglane)
 
