@@ -109,7 +109,7 @@ class LeaderboardEvaluator(object):
     ego_vehicles = []
 
     # Tunable parameters
-    client_timeout = 10.0  # in seconds
+    client_timeout = 20.0  # in seconds
     wait_for_world = 20.0  # in seconds
 
     # modification: 20.0 -> 10.0
@@ -330,6 +330,13 @@ class LeaderboardEvaluator(object):
 
         _, route = interpolate_trajectory(self.world, config.trajectory)
         customized_data["center_transform"] = route[int(len(route) // 2)][0]
+
+        # from customized_utils import visualize_route
+        # visualize_route(route)
+        # transforms = []
+        # for x in route:
+        #     transforms.append(x[0])
+        # print('len(transforms)', len(transforms))
 
 
 

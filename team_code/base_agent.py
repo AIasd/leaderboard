@@ -45,13 +45,7 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
         self.d_angle_norm = 1
 
 
-        # hop_resolution = 0.1
-        # _, route = interpolate_trajectory(self._world, self.trajectory, hop_resolution)
-        # visualize_route(route)
-        # self.transforms = []
-        # for x in route:
-        #     self.transforms.append(x[0])
-        # print('len(self.transforms)', len(self.transforms))
+
 
 
 
