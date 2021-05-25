@@ -21,7 +21,6 @@ sys.path.append('.')
 sys.path.append('leaderboard')
 sys.path.append('leaderboard/team_code')
 sys.path.append('scenario_runner')
-sys.path.append('scenario_runner')
 sys.path.append('carla_project')
 sys.path.append('carla_project/src')
 
@@ -70,18 +69,19 @@ from leaderboard.utils.route_parser import RouteParser
 
 
 from customized_utils import (
-    create_transform,
     specify_args,
     is_port_in_use,
     make_hierarchical_dir,
-    start_server,
-    start_client,
-    try_load_world,
     port_to_gpu,
-    estimate_objectives,
     arguments_info,
     exit_handler
 )
+
+
+
+
+from carla_specific_utils.carla_specific_tools import create_transform, estimate_objectives, start_server, start_client, try_load_world
+
 from object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 

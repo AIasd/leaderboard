@@ -10,7 +10,8 @@ from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 import numpy as np
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
-from customized_utils import get_angle, visualize_route, norm_2d, get_bbox, angle_from_center_view_fov
+from carla_specific_utils.carla_specific import get_angle, norm_2d, get_bbox, angle_from_center_view_fov
+from carla_specific_utils.carla_specific_tools import visualize_route
 import os
 import math
 import pathlib
