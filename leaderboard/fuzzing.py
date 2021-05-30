@@ -82,7 +82,7 @@ from customized_utils import (
 
 from carla_specific_utils.carla_specific_tools import create_transform, estimate_objectives, start_server, start_client, try_load_world
 
-from object_types import WEATHERS
+from carla_specific_utils.object_types import WEATHERS
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 
 from psutil import process_iter

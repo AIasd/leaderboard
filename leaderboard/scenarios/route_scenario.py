@@ -44,7 +44,7 @@ from leaderboard.utils.route_parser import RouteParser, TRIGGER_THRESHOLD, TRIGG
 from leaderboard.utils.route_manipulation import interpolate_trajectory, _get_latlon_ref, location_route_to_gps
 
 # addition
-from carla_specific_tools import visualize_route, perturb_route
+from carla_specific_utils.carla_specific_tools import visualize_route, perturb_route
 
 
 
