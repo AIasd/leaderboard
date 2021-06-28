@@ -64,7 +64,7 @@ from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
 
 
-from leaderboard.customized.object_params import Static, Pedestrian, Vehicle
+from carla_specific_utils.object_params import Static, Pedestrian, Vehicle
 from leaderboard.utils.route_parser import RouteParser
 
 
