@@ -13,7 +13,7 @@ from carla_project.src.common import CONVERTER, COLOR
 from team_code.map_agent import MapAgent
 from team_code.pid_controller import PIDController
 
-from customized_utils import norm_2d, get_bbox
+from carla_specific_utils.carla_specific import norm_2d, get_bbox
 import json
 
 from object_types import WEATHERS
